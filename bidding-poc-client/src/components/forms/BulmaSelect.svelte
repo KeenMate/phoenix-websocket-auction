@@ -36,10 +36,6 @@
 						<option value={option.value}>
 							{option.text}
 						</option>
-					{:else}
-						<option>
-							{emptyMessage}
-						</option>
 					{/each}
 				{/if}
 			</select>

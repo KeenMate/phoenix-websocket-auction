@@ -33,6 +33,7 @@ export async function createAuction(auction) {
 				title: auction.title,
 				category_id: auction.categoryId,
 				start_price: auction.startPrice,
+				bidding_start: auction.biddingStart,
 				bidding_end: auction.biddingEnd,
 				postponed_until: auction.postponedUntil
 			})

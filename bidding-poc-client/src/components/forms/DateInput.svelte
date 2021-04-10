@@ -20,12 +20,13 @@
 		const day = val.getDay()
 		const hours = val.getHours()
 		const minutes = val.getMinutes()
+		// const seconds = val.getSeconds()
 
 		return `${padNumber(year, 4)}-${padNumber(month, 2)}-${padNumber(day, 2)}T${padNumber(hours, 2)}:${padNumber(minutes, 2)}`
 	}
 
 	function padNumber(number, padding) {
-		number.toString().padStart(padding, "0")
+		return number.toString().padStart(padding, "0")
 	}
 
 </script>

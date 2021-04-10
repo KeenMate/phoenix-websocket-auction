@@ -1,21 +1,25 @@
 <script>
-	import {auctionChannel, createAuction, getAuctionCategories} from "../providers/socket/auction"
+	import {createAuction, getAuctionCategories} from "../providers/socket/auction"
 	import TextInput from "../components/forms/TextInput.svelte"
 	import NumberInput from "../components/forms/NumberInput.svelte"
 	import DateInput from "../components/forms/DateInput.svelte"
 	import BulmaSelect from "../components/forms/BulmaSelect.svelte"
 	import {onMount} from "svelte"
+	import m from "moment"
 
 	let title = ""
 	let categoryId = null
 	let startPrice = 0
-	let biddingEnd = new Date()
+	let biddingEnd = m().add(3, "minute").toDate()
 	// minutes
 	let postponedFor = null
 
 	let loading = false
 
 	let auctionItemCategories = []
+	
+	$: postponedForNumber = postponedFor && Number(postponedFor)
+	$: biddingStart = postponedFor && (m().add(postponedForNumber, "seconds")).toDate() || new Date()
 
 	function onSubmit(ev) {
 		ev.preventDefault()
@@ -25,19 +29,24 @@
 			return
 		}
 
-		loading = true
-		createAuction({
-			title,
+		console.log("Creating item: ", title,
 			categoryId,
 			startPrice,
-			biddingEnd
-		})
-			.then(ctx => {
-				// todo: change route to auction edit
-			})
-			.finally(() => {
-				loading = false
-			})
+			biddingStart,
+			biddingEnd)
+		// loading = true
+		// createAuction({
+		// 	title,
+		// 	categoryId,
+		// 	startPrice,
+		// 	biddingEnd
+		// })
+		// 	.then(ctx => {
+		// 		// todo: change route to auction edit
+		// 	})
+		// 	.finally(() => {
+		// 		loading = false
+		// 	})
 
 		// rest way
 		// creationTask = createAuctionItem(title, category, startPrice, biddingEnd)
@@ -78,7 +87,6 @@
 						options={auctionItemCategories}
 						label="Category"
 						placeholder="Select category"
-						emptyMessage="No items available"
 						required
 						on:change={({detail: d}) => categoryId = Number(d)}
 					/>
@@ -94,25 +102,25 @@
 			</div>
 			<div class="columns">
 				<div class="column is-narrow">
+					<BulmaSelect
+						value={postponedFor}
+						label="Delayed bidding"
+						on:change={({detail: d}) => postponedFor = Number(d)}
+					>
+						<option value="0">No delay</option>
+						<option value="20">20 seconds</option>
+						<option value="40">40 seconds</option>
+						<option value="60">60 seconds</option>
+						<option value="80">80 seconds</option>
+					</BulmaSelect>
+				</div>
+				<div class="column is-narrow">
 					<DateInput
 						value={biddingEnd}
 						label="Bidding end"
 						required
 						on:input={({detail: d}) => biddingEnd = d}
 					/>
-				</div>
-				<div class="column is-narrow">
-					<BulmaSelect
-						value={postponedFor}
-						label="Delayed bidding"
-						placeholder="Select postpone duration"
-						on:change={({detail: d}) => postponedFor = Number(d)}
-					>
-						<option value="0">No delay</option>
-						<option value="10">10 minutes</option>
-						<option value="30">30 minutes</option>
-						<option value="60">1 hour</option>
-					</BulmaSelect>
 				</div>
 			</div>
 			<div class="level">
@@ -123,7 +131,7 @@
 						type="submit"
 						disabled={loading}
 					>
-						Create
+						Start (with delay if you specified one or not)
 					</button>
 				</div>
 			</div>
