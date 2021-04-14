@@ -1,49 +1,59 @@
-/**
- * @typedef AuctionItemEventHandlers
- * @property {Function} placedBid
- * @property {Function} userJoined
- */
+import {readable} from "svelte/store"
+import {Presence} from "phoenix"
+import {pushMessage} from "./common"
 
-/**
- * @param socket {Socket}
- * @param auctionItemId {number}
- * @param eventHandlers {AuctionItemEventHandlers}
- * @returns {*}
- */
-export function initAuctionItemChannel(socket, auctionItemId, eventHandlers) {
-	const channel = socket.channel(`auction_item:${auctionItemId}`)
+export function initBiddingChannel(socket, itemId, listeners = {}) {
+	const channel = socket.channel(`bidding:${itemId}`, {})
 
-	initPlacedBid(channel, eventHandlers.placedBid)
-	initUserJoined(channel, eventHandlers.userJoined)
-
-	return channel
-}
-
-export function placeBid(channel, amount, onSuccess, onError) {
-	channel.push("place_bid", {amount})
-		.receive("ok", function () {
-			console.log("Bid placed", arguments)
-			onSuccess.apply(this, arguments)
+	const users = readable([], set => {
+		const presence = new Presence(channel)
+		presence.onSync(() => {
+			set(presence.list().map(presenceItem => {
+				return presenceItem.metas.find(() => true)
+			}))
 		})
-		.receive("error", msg => {
-			console.log("Error placing bid", msg)
-			onError(msg)
-		})
-		.receive("timeout", () => {
-			console.log("Place bid timed out")
-		})
-}
 
-function initPlacedBid(channel, handler) {
-	channel.on("bid_placed", msg => {
-		console.log("Bid placed: ", msg)
-		handler(msg)
+		return () => {
+		}
+	})
+
+	// initial messages
+	listeners.onAuctionItem && channel.on("auction_item", ctx => {
+		listeners.onAuctionItem(ctx)
+	})
+	listeners.onBiddings && channel.on("biddings", ctx => {
+		listeners.onBiddings(ctx)
+	})
+
+	// Regular messages
+	listeners.onBidPlaced && channel.on("bid_placed", ctx => {
+		listeners.onBidPlaced(ctx)
+	})
+	// User is now part of bidding
+	listeners.onUserJoined && channel.on("user_joined", ctx => {
+		listeners.onUserJoined(ctx)
+	})
+
+	return new Promise((resolve, reject) => {
+		channel.join()
+			.receive("ok", ctx => {
+				console.log("Joined auction item channel", ctx)
+				resolve({
+					channel,
+					users
+				})
+			})
+			.receive("errpr", ctx => {
+				console.error("Could not join auction item channel", ctx)
+				reject(ctx)
+			})
 	})
 }
 
-function initUserJoined(channel, handler) {
-	channel.on("user_joined", msg => {
-		console.log("User joined", msg)
-		handler(msg)
-	})
+export function joinBidding(channel) {
+	return pushMessage(channel, "join_bidding")
+}
+
+export function placeBid(channel, amount) {
+	return pushMessage(channel, "place_bid", {amount})
 }

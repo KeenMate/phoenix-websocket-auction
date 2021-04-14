@@ -8,22 +8,34 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   @impl true
   def join("bidding:" <> item_id, _payload, socket) do
-    if AuctionItem.member?(item_id) do
-      send(self(), :after_join)
+    item_id
+    |> Integer.parse()
+    |> case do
+      :error ->
+        {:error, %{reason: "invalid item_id"}}
 
-      {
-        :ok,
-        socket
-        |> put_item_id(item_id)
-      }
-    else
-      {:error, %{reason: "invalid item_id"}}
+      {parsed_item_id, _} ->
+        parsed_item_id
+        |> AuctionItem.member?()
+        |> if do
+          send(self(), :after_join)
+
+          socket_with_item_id = put_item_id(socket, parsed_item_id)
+          {
+            :ok,
+            socket_with_item_id
+            |> put_user_joined(user_joined?(socket_with_item_id))
+          }
+        else
+          {:error, %{reason: "invalid item_id"}}
+        end
     end
   end
 
   @impl true
   def handle_in("join_bidding", _payload, socket) do
-    %{user_id: user_id, item_id: item_id} = socket.assigns
+    item_id = get_item_id(socket)
+    user_id = get_user_id(socket)
 
     UserInAuction.add_user_to_auction(user_id, item_id)
 
@@ -37,17 +49,22 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   def handle_in("place_bid", %{"amount" => amount}, socket) when is_number(amount) do
-    %{user_id: user_id, item_id: item_id} = socket.assigns
+    item_id = get_item_id(socket)
+    user_id = get_user_id(socket)
 
-    AuctionItem.place_bid(item_id, user_id, amount)
+    item_id
+    |> AuctionItem.place_bid(user_id, amount)
     |> case do
-      {:ok, _item_bid} ->
-        broadcast_placed_bid(socket, user_id, amount)
+      {:ok, item_bid} ->
+        [bid_with_data] = ItemBid.with_data([item_bid])
+        bid_with_data = Map.from_struct(bid_with_data)
 
-        {:reply, :ok, socket}
+        broadcast_placed_bid(socket, bid_with_data)
 
-      {:error, _} = error ->
-        {:reply, response_from_place_bid_error(error), socket}
+        {:reply, {:ok, bid_with_data}, socket}
+
+      {:error, reason} ->
+        {:reply, {:error, response_from_place_bid_error(reason)}, socket}
     end
   end
 
@@ -55,29 +72,53 @@ defmodule BiddingPocWeb.BiddingChannel do
   def handle_info(:after_join, socket) do
     push(socket, "presence_state", get_item_users(socket))
 
-    Presence.track(socket, socket.assigns.user.id, %{
-      id: socket.assigns.user.id,
+    Presence.track(socket, get_user_id(socket), %{
+      id: get_user_id(socket),
       username: socket.assigns.user.username,
-      joined: socket.assigns.user_joined
+      user_joined: socket.assigns.user_joined
     })
 
-    # send data to client
-    push(socket, "auction_item", get_auction_item(socket))
-    push(socket, "biddings", get_item_biddings(socket))
+    # send init data to client
+    socket
+    |> push_auction_item()
+    |> push_auction_item_biddings()
 
     {:noreply, socket}
+  end
+
+  defp push_auction_item(socket) do
+    socket
+    |> get_item_id()
+    |> AuctionItem.with_data()
+    |> case do
+      {:ok, %AuctionItem{} = item_with_data} ->
+        updated_item_with_data =
+          item_with_data
+          |> Map.put(:user_joined, user_joined?(socket))
+
+        push(socket, "auction_item", Map.from_struct(updated_item_with_data))
+      {:error, reason} when reason in [:item_not_found, :user_not_found, :category_not_found] ->
+        Logger.error("Unexpected error occured while loading auction item that has an active ws channel")
+    end
+
+    socket
+  end
+
+  defp push_auction_item_biddings(socket) do
+    biddings =
+      socket
+      |> get_item_biddings()
+      |> ItemBid.with_data()
+      |> Enum.map(&Map.from_struct/1)
+
+    push(socket, "biddings", %{biddings: biddings})
+    socket
   end
 
   defp get_item_biddings(socket) do
     socket
     |> get_item_id()
     |> ItemBid.get_item_bids()
-  end
-
-  defp get_auction_item(socket) do
-    socket
-    |> get_item_id()
-    |> AuctionItem.get_by_id()
   end
 
   defp get_item_users(socket) do
@@ -89,23 +130,23 @@ defmodule BiddingPocWeb.BiddingChannel do
     socket
   end
 
-  defp broadcast_placed_bid(socket, user_id, amount) do
-    broadcast_from(socket, "bid_placed", %{amount: amount, user_id: user_id})
+  defp broadcast_placed_bid(socket, bid) do
+    broadcast_from(socket, "bid_placed", bid)
   end
 
-  defp response_from_place_bid_error({:error, :not_found}) do
+  defp response_from_place_bid_error(:not_found) do
     error_reason_map("Item not found")
   end
 
-  defp response_from_place_bid_error({:error, :small_bid}) do
+  defp response_from_place_bid_error(:small_bid) do
     error_reason_map("Insufficient bid entered")
   end
 
-  defp response_from_place_bid_error({:error, :bidding_ended}) do
+  defp response_from_place_bid_error(:bidding_ended) do
     error_reason_map("Bidding for this item has ended")
   end
 
-  defp response_from_place_bid_error({:error, :item_postponed}) do
+  defp response_from_place_bid_error(:item_postponed) do
     error_reason_map("Bidding for this item is postponed")
   end
 
@@ -115,8 +156,12 @@ defmodule BiddingPocWeb.BiddingChannel do
     }
   end
 
+  defp user_joined?(socket) do
+    UserInAuction.user_in_auction?(get_item_id(socket), get_user_id(socket))
+  end
+
   defp update_presence_user_joined(socket) do
-    Presence.update(socket, socket.assigns.user.id, fn meta ->
+    Presence.update(socket, get_user_id(socket), fn meta ->
       meta
       |> Map.put(:joined, socket.assigns.user_joined)
     end)
@@ -136,6 +181,13 @@ defmodule BiddingPocWeb.BiddingChannel do
     socket
     |> Map.get(:assigns)
     |> Map.get(:item_id)
+  end
+
+  defp get_user_id(socket) do
+    socket
+    |> Map.get(:assigns)
+    |> Map.get(:user, %{})
+    |> Map.get(:id)
   end
 
   # defp get_current_user(socket) do

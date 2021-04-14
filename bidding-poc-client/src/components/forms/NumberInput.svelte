@@ -4,6 +4,7 @@
 	export let label = ""
 	export let value = 0
 	export let required = false
+	export let isHorizontal = false
 
 	const dispatch = createEventDispatcher()
 
@@ -13,17 +14,41 @@
 
 </script>
 
-<div class="field">
-	<label class="label">
-		{label}
-	</label>
-	<div class="control">
-		<input
-			class="input"
-			type="number"
-			{value}
-			{required}
-			on:input={onInput}
-		>
+{#if isHorizontal}
+	<div class="field is-horizontal">
+		<div class="field-label is-normal">
+			<label class="label">
+				{label}
+			</label>
+		</div>
+		<div class="field-body">
+			<div class="field">
+				<div class="control">
+					<input
+						class="input"
+						type="number"
+						{value}
+						{required}
+						on:input={onInput}
+					>
+				</div>
+			</div>
+		</div>
 	</div>
-</div>
+{:else}
+	<div class="field">
+		<label class="label">
+			{label}
+		</label>
+		<div class="control">
+			<input
+				class="input"
+				type="number"
+				{value}
+				{required}
+				on:input={onInput}
+			>
+		</div>
+	</div>
+{/if}
+

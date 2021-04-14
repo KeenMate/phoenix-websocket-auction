@@ -14,6 +14,6 @@
 
 </script>
 
-<section class="auction-item-filters mb-2">
-	<TextInput label="Search auctions" value={searchText} on:input={onSearchTextInput} />
-</section>
+	<section class="auction-item-filters mb-2">
+		<TextInput label="Search auctions" value={searchText} on:input={onSearchTextInput} />
+	</section>

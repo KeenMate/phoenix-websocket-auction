@@ -16,17 +16,22 @@ export const Urls = {
 	Profile: "/profile",
 	Auctions: "/auctions",
 	Users: "/users",
-	UserDetail: "/user/:id",
+	UserProfile: "/user/:id",
+	UserEdit: "/user/:id/edit",
 	NewAuctionItem: "/new-auction-item",
-	AuctionItem: "/auction/:id"
+	AuctionItem: "/auction/:id",
 }
 
 export function getAuctionItemUrl(id) {
 	return `/auction/${id}`
 }
 
-export function getUserDetailUrl(id) {
-	return `/user/${id}`
+export function getUserEditUrl(id) {
+	return Urls.UserEdit.replace(":id", id)
+}
+
+export function getUserProfileUrl(id) {
+	return Urls.UserProfile.replace(":id", id)
 }
 
 export default {
@@ -36,7 +41,7 @@ export default {
 	[Urls.Profile]: Profile,
 	[Urls.Auctions]: Auctions,
 	[Urls.Users]: Users,
-	[Urls.UserDetail]: UserDetail,
+	[Urls.UserEdit]: UserDetail,
 	[Urls.NewAuctionItem]: NewAuctionItem,
 	[Urls.AuctionItem]: AuctionItem,
 	// The catch-all route must always be last

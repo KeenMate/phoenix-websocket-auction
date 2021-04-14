@@ -1,6 +1,5 @@
 <script>
-	import {getUserDetailUrl} from "../../routes"
-	import toastr from "../../helpers/toastr-helpers"
+	import {getUserEditUrl} from "../../routes"
 	import Notification from "../ui/Notification.svelte"
 	import DeleteUserModal from "./DeleteUserModal.svelte"
 
@@ -37,7 +36,7 @@
 		{#each users as user (user.id)}
 			<tr>
 				<td>
-					<a href="#{getUserDetailUrl(user.id)}">
+					<a href="#{getUserEditUrl(user.id)}">
 						{user.username}
 					</a>
 				</td>

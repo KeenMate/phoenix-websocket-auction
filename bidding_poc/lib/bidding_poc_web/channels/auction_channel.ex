@@ -38,9 +38,9 @@ defmodule BiddingPocWeb.AuctionChannel do
           |> get_socket_watched_items()
           |> toggle_watched_item(auction_item.id)
 
-        socket_with_new_watched_item = assign_watched_items(socket, new_watched_items)
+        socket_with_new_watched_items = assign_watched_items(socket, new_watched_items)
 
-        {:reply, {:ok, auction_item}, socket_with_new_watched_item}
+        {:reply, {:ok, auction_item}, socket_with_new_watched_items}
 
       {:error, :id_filled} = error ->
         {:reply, error, socket}

@@ -1,25 +1,34 @@
 <script>
 	import {push, querystring, location} from "svelte-spa-router"
 	import {parse, stringify} from "qs"
-	import {getAuctionCategories} from "../providers/auctions"
+	import {getAuctionCategories} from "../providers/socket/auction"
 	import {getAuctionItems} from "../providers/socket/auction"
 	import {stringToNumber} from "../helpers/parser"
-	import AuctionCategoriesMenu from "../components/auction/AuctionCategoriesMenu.svelte"
-	import AuctionItemList from "../components/auction/AuctionItemList.svelte"
-	import AuctionItemsFilters from "../components/auction/AuctionItemsFilters.svelte"
+	import AuctionCategoriesMenu from "../components/auctions/AuctionCategoriesMenu.svelte"
+	import AuctionItemList from "../components/auctions/AuctionItemList.svelte"
+	import AuctionItemsFilters from "../components/auctions/AuctionItemsFilters.svelte"
 	import Notification from "../components/ui/Notification.svelte"
+
+	let categories = []
 
 	$: parsedQuerystring = parse($querystring)
 	$: searchText = parsedQuerystring.search || ""
-	$: selectedCategory = parsedQuerystring.category || ""
-	$: page = stringToNumber(parsedQuerystring.page, 1)
+	$: selectedCategory = Number(parsedQuerystring.category || "") || null
+	$: page = stringToNumber(parsedQuerystring.page, 0)
 	$: pageSize = stringToNumber(parsedQuerystring.pageSize, 10)
 
 	let categoriesTask = getAuctionCategories()
+		.then(ctx => categories = ctx)
+		.catch(error => {
+			console.error("Could not load auction categories", error)
+			toastr.error("Could not load auction categories")
+		})
 	$: auctionItemsTask = getAuctionItems(searchText, selectedCategory, page, pageSize)
 
 	function onSelectCategory({detail: category}) {
-		push(`${$location}?${stringify({...parsedQuerystring, category})}`)
+		const newPartial = {...parsedQuerystring, category: category && category.id || undefined}
+
+		push(`${$location}?${stringify(newPartial)}`)
 	}
 
 	function onUpdateSearchText({detail: search}) {
@@ -31,7 +40,7 @@
 	<div class="column is-2">
 		{#await categoriesTask}
 			<Notification>Loading categories</Notification>
-		{:then categories}
+		{:then _}
 			<AuctionCategoriesMenu
 				{categories}
 				{selectedCategory}
@@ -53,6 +62,7 @@
 		{:then auctionItems}
 			<AuctionItemList
 				{auctionItems}
+				{categories}
 				{page}
 				{pageSize}
 			/>

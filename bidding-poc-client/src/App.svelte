@@ -1,5 +1,4 @@
 <script>
-	import {onMount} from "svelte"
 	import Router, {push} from "svelte-spa-router"
 	import {stringify} from "qs"
 	import toastr from "./helpers/toastr-helpers"
@@ -8,9 +7,10 @@
 	import {auctionChannel, initAuctionChannel} from "./providers/socket/auction"
 	import {getCurrentUser} from "./providers/user"
 	import {createSocket, socket} from "./providers/socket/common"
-	import {addFlash} from "./stores/flashes"
 	import Navigation from "./components/navigatioin/Navigation.svelte"
 	import {initUsersChannel, usersChannel} from "./providers/socket/user"
+
+	$: $authTokenStore && onAuthToken($authTokenStore)
 
 	async function onRouteLoading(ev) {
 		const {detail: route} = ev
@@ -26,12 +26,17 @@
 		}
 	}
 
-	async function loadUser() {
+	function onAuthToken(token) {
+		initUser(token)
+		initSocket(token)
+	}
+
+	async function initUser(token) {
 		if (!$authTokenStore)
 			return
 
 		try {
-			const result = await getCurrentUser($authTokenStore)
+			const result = await getCurrentUser(token)
 			if (result instanceof Response) {
 				toastr.error("Could not load current user info")
 			} else {
@@ -46,30 +51,23 @@
 		}
 	}
 
-	function initSocket() {
-		const newSocket = createSocket($authTokenStore)
-		socket.set(newSocket)
-		newSocket.connect()
-
-		initAuctionChannel(newSocket).then(auctionChannel.set)
-		initUsersChannel(newSocket).then(usersChannel.set)
-	}
-
-	onMount(async () => {
+	function initSocket(token) {
 		try {
-			if (!$userStore)
-				await loadUser()
+			const newSocket = createSocket(token)
+			socket.set(newSocket)
+			newSocket.connect()
 
-			initSocket()
+			initAuctionChannel(newSocket).then(auctionChannel.set)
+			initUsersChannel(newSocket).then(usersChannel.set)
 		} catch (error) {
-			console.error("Could not init socket connection", error)
-			addFlash("Could not initiate real-time connection")
+			console.error("Could not init socket: ", error)
+			toastr.error("Could not initiate real-time connection to the server")
 		}
-	})
+	}
 </script>
 
 <Navigation user={$userStore} />
-<main>
+<main class="mt-3">
 	<div class="container is-fluid">
 		<Router
 			{routes}

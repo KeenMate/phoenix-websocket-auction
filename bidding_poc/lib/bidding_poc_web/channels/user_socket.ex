@@ -5,6 +5,7 @@ defmodule BiddingPocWeb.UserSocket do
   alias BiddingPoc.Database.{User}
 
   channel "users:lobby", BiddingPocWeb.UsersChannel
+  channel "user:*", BiddingPocWeb.UserChannel
   channel "auction:lobby", BiddingPocWeb.AuctionChannel
   channel "bidding:*", BiddingPocWeb.BiddingChannel
 

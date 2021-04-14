@@ -1,4 +1,5 @@
 import {writable} from "svelte/store"
+import {pushMessage} from "./common"
 
 export const usersChannel = writable(null)
 
@@ -36,67 +37,23 @@ function joinChannel(channel) {
 export async function getUsers(search, page = 0, pageSize = 10) {
 	const channel = await usersChannelAwaiter
 
-	return new Promise((resolve, reject) => {
-		channel
-			.push("get_users", {search, page, page_size: pageSize})
-			.receive("ok", ctx => {
-				console.log("Received ok status when getting users", ctx)
-				resolve(ctx)
-			})
-			.receive("error", ctx => {
-				console.log("Received error status when getting users", ctx)
-				reject(ctx)
-			})
-	})
+	return pushMessage(channel, "get_users", {search, page, page_size: pageSize})
 }
 
 export async function getUser(userId) {
 	const channel = await usersChannelAwaiter
 
-	return new Promise((resolve, reject) => {
-		channel
-			.push("get_user", {user_id: userId})
-			.receive("ok", ctx => {
-				console.log("Received ok status when getting user", ctx)
-				resolve(ctx)
-			})
-			.receive("error", ctx => {
-				console.log("Received error status when getting user", ctx)
-				reject(ctx)
-			})
-	})
+	return pushMessage(channel, "get_user", {user_id: userId})
 }
 
 export async function updateUser(userId, username, password, isAdmin) {
 	const channel = await usersChannelAwaiter
 
-	return new Promise((resolve, reject) => {
-		channel
-			.push("update_user", {user_id: userId, username, password, is_admin: isAdmin})
-			.receive("ok", ctx => {
-				console.log("Received ok status when updating user", ctx)
-				resolve(ctx)
-			})
-			.receive("error", ctx => {
-				console.log("Received error status when updating user", ctx)
-				reject(ctx)
-			})
-	})
+	return pushMessage(channel, "update_user", {user_id: userId, username, password, is_admin: isAdmin})
 }
 
 export async function deleteUser(userId) {
 	const channel = await usersChannelAwaiter
 
-	return new Promise((resolve, reject) => {
-		channel
-			.push("delete_user", {user_id: userId})
-			.receive("ok", ctx => {
-				console.log("Received ok status when deleting user", ctx)
-				resolve(ctx)
-			})
-			.receive("error", ctx => {
-				console.log("Received error status when deleting user", ctx)
-				reject(ctx)
-			})
-	})
+	return pushMessage(channel, "delete_user", {user_id: userId})
 }

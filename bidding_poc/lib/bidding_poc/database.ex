@@ -341,6 +341,21 @@ defdatabase BiddingPoc.Database do
       end
     end
 
+    @spec get_by_id(pos_integer()) :: {:ok, t()} | {:error, :not_found}
+    def get_by_id(category_id) when is_number(category_id) do
+      Amnesia.transaction do
+        category_id
+        |> read()
+        |> case do
+          nil ->
+            {:error, :not_found}
+
+          found ->
+            {:ok, found}
+        end
+      end
+    end
+
     @spec get_by_title(binary()) :: {:ok, t()} | {:error, :not_found}
     def get_by_title(title) when is_binary(title) do
       lowered_title = String.downcase(title)
@@ -408,8 +423,8 @@ defdatabase BiddingPoc.Database do
       :title,
       :category_id,
       :start_price,
+      :bidding_start,
       :bidding_end,
-      :postponed_until,
       :inserted_at
     ],
     type: :set,
@@ -422,7 +437,7 @@ defdatabase BiddingPoc.Database do
             category_id: pos_integer() | nil,
             start_price: pos_integer(),
             bidding_end: DateTime.t(),
-            postponed_until: DateTime.t() | :infinite,
+            bidding_start: DateTime.t(),
             inserted_at: DateTime.t()
           }
 
@@ -454,6 +469,13 @@ defdatabase BiddingPoc.Database do
       {:error, :id_filled}
     end
 
+    def get_all() do
+      Amnesia.transaction do
+        foldl([], &[&1 | &2])
+        |> Enum.map(&parse_auction_item_record/1)
+      end
+    end
+
     @spec get_last_items(number(), number()) :: [t()]
     def get_last_items(search \\ nil, cateogry_id \\ nil, skip \\ 0, take \\ 10) when is_number(skip) and is_number(take) do
       Amnesia.transaction do
@@ -470,7 +492,7 @@ defdatabase BiddingPoc.Database do
         end)
         |> Stream.map(&parse_auction_item_record/1)
         |> Stream.filter(fn item ->
-          (search && item.title =~ search) || (cateogry_id && item.category_id == cateogry_id)
+          (if search, do: item.title =~ search, else: true) && (if cateogry_id, do: item.category_id == cateogry_id, else: true)
         end)
         |> Stream.drop(skip)
         |> Stream.take(take)
@@ -478,7 +500,7 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_by_id(number()) :: {:ok, t()} | {:error, :not_found}
+    @spec get_by_id(pos_integer()) :: {:ok, t()} | {:error, :not_found}
     @doc """
     Reads auction item in transaction
     """
@@ -489,6 +511,29 @@ defdatabase BiddingPoc.Database do
       |> case do
         nil -> {:error, :not_found}
         found -> {:ok, found}
+      end
+    end
+
+    @spec with_data(pos_integer()) :: {:ok, t()} | {:error, :item_not_found | :user_not_found | :category_not_found}
+    def with_data(item_id) when is_number(item_id) do
+      Amnesia.transaction do
+        with {:item, {:ok, item}} <- {:item, get_by_id(item_id)},
+         {:user, {:ok, user}} <- {:user, User.get_by_id(item.user_id)},
+         {:category, {:ok, category}} <- {:category, AuctionItemCategory.get_by_id(item.category_id)} do
+          item_with_additional_info =
+            item
+            |> Map.put(:username, user.username)
+            |> Map.put(:category, category.title)
+
+          {:ok, item_with_additional_info}
+        else
+          {:item, {:error, :not_found}} ->
+            {:error, :item_not_found}
+          {:user, {:error, :not_found}} ->
+            {:error, :user_not_found}
+          {:category, {:error, :not_found}} ->
+            {:error, :category_not_found}
+        end
       end
     end
 
@@ -529,68 +574,24 @@ defdatabase BiddingPoc.Database do
       Amnesia.transaction do
         item = read(item_id)
 
-        cond do
-          item == nil ->
-            {:error, :not_found}
-
-          item_bidding_ended?(item) ->
-            {:error, :bidding_ended}
-
-          item.postponed_until != nil ->
-            {:error, :item_postponed}
-
-          true ->
-            case try_add_bid(item.id, user_id, amount) do
-              {:ok, _} = res ->
-                Logger.debug("Bid placed for item: #{item_id} by user: #{user_id}")
-                res
-
-              {:error, :small_bid} = error ->
-                error
-            end
-        end
-      end
-    end
-
-    @spec postpone_item(
-            pos_integer(),
-            pos_integer() | :system,
-            pos_integer() | :infinity | nil
-          ) :: {:ok, t()} | {:error, :user_not_found | :item_not_found | :forbidden}
-    def postpone_item(item_id, user_id, duration)
-        when is_number(item_id) and (is_number(user_id) or user_id == :system) and
-               (is_number(duration) or duration == :infinity or duration == nil) do
-      Amnesia.transaction do
-        toggle_item_write = fn item ->
-          result =
-            item
-            |> toggle_item_postponed()
-            |> write()
-
-          Logger.debug("Auction item: #{item_id} postponed by user: #{inspect(user_id)}")
-
-          result
-        end
-
-        with {:user, {:ok, user}} <- {:user, User.get_by_id(user_id)},
-             {:item, item} when not is_nil(item) <- {:item, read(item_id)} do
-          cond do
-            user_id not in [item.user_id, :admin, :system] ->
-              {:error, :forbidden}
-
-            item_postponed?(item) and duration == nil and user_id == :system ->
-              {:ok, toggle_item_write.(item)}
-
-            true ->
-              register_item_resumption(item_id, duration)
-              {:ok, toggle_item_write.(item)}
-          end
+        if item == nil do
+          {:error, :not_found}
         else
-          {:user, {:error, :not_found} = error} ->
-            {:error, :user_not_found}
+          case item_bidding_status(item) do
+            {:ok, :ongoing} ->
+              case try_add_bid(item.id, user_id, amount) do
+                {:ok, _} = res ->
+                  Logger.debug("Bid placed for item: #{item_id} by user: #{user_id}")
+                  res
 
-          {:item, nil} ->
-            {:error, :item_not_found}
+                {:error, :small_bid} = error ->
+                  error
+              end
+            {:ok, :postponed} ->
+              {:error, :item_postponed}
+            {:ok, :ended} ->
+              {:error, :bidding_ended}
+          end
         end
       end
     end
@@ -610,8 +611,8 @@ defdatabase BiddingPoc.Database do
         title: params["title"],
         category_id: params["category_id"],
         start_price: params["start_price"],
+        bidding_start: parse_iso_datetime!(params["bidding_start"]),
         bidding_end: parse_iso_datetime!(params["bidding_end"]),
-        postponed_until: parse_iso_datetime!(params["postponed_until"])
       }
     end
 
@@ -638,8 +639,7 @@ defdatabase BiddingPoc.Database do
     end
 
     defp parse_auction_item_record(
-           {AuctionItem, id, user_id, title, category_id, start_price, bidding_end,
-            postponed_until, inserted_at}
+           {AuctionItem, id, user_id, title, category_id, start_price, bidding_start, bidding_end, inserted_at}
          ) do
       %AuctionItem{
         id: id,
@@ -648,7 +648,7 @@ defdatabase BiddingPoc.Database do
         category_id: category_id,
         start_price: start_price,
         bidding_end: bidding_end,
-        postponed_until: postponed_until,
+        bidding_start: bidding_start,
         inserted_at: inserted_at
       }
     end
@@ -659,14 +659,6 @@ defdatabase BiddingPoc.Database do
     end
 
     defp parse_iso_datetime!(nil), do: nil
-
-    defp register_item_resumption(_item_id, :infinity) do
-      :ok
-    end
-
-    defp register_item_resumption(item_id, duration) when is_number(duration) do
-      :timer.apply_after(duration, __MODULE__, :postpone_item, [item_id, :system, nil])
-    end
 
     defp try_add_bid(item_id, user_id, amount) do
       if ItemBid.is_amount_highest?(item_id, amount) do
@@ -680,20 +672,24 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    defp item_bidding_ended?(item) do
-      # If bidding_end <= "now" -> bidding is over
-      DateTime.compare(item.bidding_end, DateTime.now!(Common.timezone())) in [:lt, :eq]
-    end
+    @spec item_bidding_status(t()) :: {:ok, :ended | :onngoing | :postponed} | {:error, binary(), t()}
+    defp item_bidding_status(item) do
+      now = DateTime.now!(Common.timezone())
+      bidding_start_comparison = DateTime.compare(item.bidding_start, now)
 
-    defp item_postponed?(%AuctionItem{postponed_until: nil}), do: false
+      cond do
+        DateTime.compare(item.bidding_end, now) in [:lt, :eq] ->
+          {:ok, :ended}
 
-    defp item_postponed?(%AuctionItem{postponed_until: postponed_until}) do
-      DateTime.compare(postponed_until, DateTime.now!(Common.timezone())) in [:lt, :eq]
-    end
+        bidding_start_comparison in [:lt, :eq] ->
+          {:ok, :ongoing}
 
-    defp toggle_item_postponed(item) do
-      item
-      |> Map.put(:item_postponed?, not item.item_postponed?)
+        bidding_start_comparison == :gt ->
+          {:ok, :postponed}
+
+        true ->
+          {:error, "bidding_start or bidding_end prop has invalid value...", item}
+      end
     end
   end
 
@@ -713,6 +709,8 @@ defdatabase BiddingPoc.Database do
             amount: cents()
           }
 
+    require Logger
+
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
@@ -730,9 +728,29 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    def is_amount_highest?(item_id, amount) when is_number(item_id) and is_number(amount) do
+    @spec with_data(list(t())) :: list(t())
+    def with_data(item_bids) when is_list(item_bids) do
       Amnesia.transaction do
-        where(:item_id == item_id and :amount >= amount)
+        item_bids
+        |> Enum.map(fn bid ->
+          with {:user, {:ok, user}} <- {:user, get_user_from_bid(bid)} do
+            updated_bid =
+              bid
+              |> Map.put(:username, user.username)
+              updated_bid
+          else
+            {:user, {:error, :not_found}} ->
+              Logger.error("Could not find username for item bid", bid: bid)
+              bid
+          end
+        end)
+      end
+    end
+
+    @spec is_amount_highest?(pos_integer(), pos_integer()) :: boolean()
+    def is_amount_highest?(item_id_param, amount_param) when is_number(item_id_param) and is_number(amount_param) do
+      Amnesia.transaction do
+        where(item_id == item_id_param and amount >= amount_param)
         |> Amnesia.Selection.values()
         |> Enum.empty?()
       end
@@ -761,12 +779,20 @@ defdatabase BiddingPoc.Database do
         inserted_at: DateTime.now!(Common.timezone())
       }
     end
+
+    defp get_user_from_bid(%ItemBid{user_id: user_id}) do
+      User.get_by_id(user_id)
+    end
   end
 
   deftable UserInAuction, [{:id, autoincrement}, :user_id, :auction_item_id],
     index: [:user_id, :auction_item_id] do
+    @moduledoc """
+    This table holds informations on users joined in auctions
+    """
+
     @type t() :: %UserInAuction{
-            id: pos_integer(),
+            id: pos_integer() | nil,
             user_id: pos_integer(),
             auction_item_id: pos_integer()
           }
@@ -791,6 +817,15 @@ defdatabase BiddingPoc.Database do
           x when is_list(x) ->
             {:error, :exists}
         end
+      end
+    end
+
+    @spec user_in_auction?(pos_integer(), pos_integer()) :: boolean()
+    def user_in_auction?(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
+        |> Amnesia.Selection.values()
+        |> Enum.any?()
       end
     end
 

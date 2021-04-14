@@ -33,8 +33,8 @@
 	<ul class="menu-list">
 		{#each categories as category}
 			<li on:click={() => onSelectCategory(category)}>
-				<a class:is-active={category === selectedCategory}>
-					{category || "Unknown category"}
+				<a class:is-active={category.id === selectedCategory}>
+					{category.title || "Unknown category"}
 				</a>
 			</li>
 		{:else}

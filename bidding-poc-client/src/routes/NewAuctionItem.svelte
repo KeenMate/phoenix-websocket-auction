@@ -1,11 +1,14 @@
 <script>
+	import {onMount} from "svelte"
+	import {push} from "svelte-spa-router"
+	import m from "moment"
+	import {getAuctionItemUrl} from "../routes"
 	import {createAuction, getAuctionCategories} from "../providers/socket/auction"
+	import toastr from "../helpers/toastr-helpers"
 	import TextInput from "../components/forms/TextInput.svelte"
 	import NumberInput from "../components/forms/NumberInput.svelte"
 	import DateInput from "../components/forms/DateInput.svelte"
 	import BulmaSelect from "../components/forms/BulmaSelect.svelte"
-	import {onMount} from "svelte"
-	import m from "moment"
 
 	let title = ""
 	let categoryId = null
@@ -17,7 +20,7 @@
 	let loading = false
 
 	let auctionItemCategories = []
-	
+
 	$: postponedForNumber = postponedFor && Number(postponedFor)
 	$: biddingStart = postponedFor && (m().add(postponedForNumber, "seconds")).toDate() || new Date()
 
@@ -25,31 +28,28 @@
 		ev.preventDefault()
 
 		if (!title || !categoryId || !startPrice || startPrice < 0 || biddingEnd < new Date()) {
-			alert("Form is filled incorrectly")
+			toastr.error("Form is filled incorrectly", {timeOut: "5000"})
 			return
 		}
 
-		console.log("Creating item: ", title,
+		loading = true
+
+		console.log("Create item ", title,
 			categoryId,
 			startPrice,
 			biddingStart,
 			biddingEnd)
-		// loading = true
+
 		// createAuction({
 		// 	title,
 		// 	categoryId,
 		// 	startPrice,
+		// 	biddingStart,
 		// 	biddingEnd
 		// })
 		// 	.then(ctx => {
-		// 		// todo: change route to auction edit
+		// 		push(getAuctionItemUrl(ctx.id))
 		// 	})
-		// 	.finally(() => {
-		// 		loading = false
-		// 	})
-
-		// rest way
-		// creationTask = createAuctionItem(title, category, startPrice, biddingEnd)
 		// 	.finally(() => {
 		// 		loading = false
 		// 	})
@@ -57,17 +57,17 @@
 
 	onMount(() => {
 		getAuctionCategories()
-		.then(categories => {
-			auctionItemCategories = categories
-			.map(x => ({
-				value: x.id,
-				text: x.title
-			}))
-		})
-		.catch(error => {
-			console.error("Could not get auction categories", error)
-			toastr.error("Could not load auction categories")
-		})
+			.then(categories => {
+				auctionItemCategories = categories
+					.map(x => ({
+						value: x.id,
+						text: x.title
+					}))
+			})
+			.catch(error => {
+				console.error("Could not get auction categories", error)
+				toastr.error("Could not load auction categories")
+			})
 	})
 </script>
 

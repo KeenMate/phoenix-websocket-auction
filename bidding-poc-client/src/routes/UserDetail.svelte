@@ -50,7 +50,7 @@
 				console.log("Updated user: ", result)
 			})
 			.catch(error => {
-				taostr.danger("Could not update user!")
+				taostr.error("Could not update user!")
 				console.error("Could not update user: ", error)
 			})
 		.finally(() => {
