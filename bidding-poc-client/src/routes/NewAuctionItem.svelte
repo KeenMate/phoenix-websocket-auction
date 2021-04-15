@@ -34,25 +34,25 @@
 
 		loading = true
 
-		console.log("Create item ", title,
-			categoryId,
-			startPrice,
-			biddingStart,
-			biddingEnd)
-
-		// createAuction({
-		// 	title,
+		// console.log("Create item ", title,
 		// 	categoryId,
 		// 	startPrice,
 		// 	biddingStart,
-		// 	biddingEnd
-		// })
-		// 	.then(ctx => {
-		// 		push(getAuctionItemUrl(ctx.id))
-		// 	})
-		// 	.finally(() => {
-		// 		loading = false
-		// 	})
+		// 	biddingEnd)
+
+		createAuction({
+			title,
+			categoryId,
+			startPrice,
+			biddingStart,
+			biddingEnd
+		})
+			.then(ctx => {
+				push(getAuctionItemUrl(ctx.id))
+			})
+			.finally(() => {
+				loading = false
+			})
 	}
 
 	onMount(() => {

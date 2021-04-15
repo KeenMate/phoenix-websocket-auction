@@ -50,6 +50,29 @@
 			throw error
 		}
 	}
+	
+	function dummyChannel(newSocket) {
+		// const dummy1 = newSocket.channel("dummy:", {})
+		// dummy1.on("tick", () => {
+		// 	console.log("Dummy1 ticked")
+		// })
+		// dummy1.join()
+		//
+		// const dummy2 = newSocket.channel("dummy:blocking", {})
+		// dummy2.join()
+		// .receive("ok", () => {
+		// 	setTimeout(() => {
+		// 		console.log("Starting Req/Res")
+		// 		dummy2.push("get", {})
+		// 			.receive("ok", ctx => {
+		// 				console.log("Response", ctx)
+		// 			})
+		// 		.receive("timeout", () => {
+		// 			console.log("Timed out!")
+		// 		})
+		// 	}, 2000)
+		// })
+	}
 
 	function initSocket(token) {
 		try {
@@ -59,6 +82,8 @@
 
 			initAuctionChannel(newSocket).then(auctionChannel.set)
 			initUsersChannel(newSocket).then(usersChannel.set)
+			
+			dummyChannel(newSocket)
 		} catch (error) {
 			console.error("Could not init socket: ", error)
 			toastr.error("Could not initiate real-time connection to the server")

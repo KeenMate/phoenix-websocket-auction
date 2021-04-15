@@ -2,11 +2,13 @@ defmodule BiddingPocWeb.AuctionChannel do
   use BiddingPocWeb, :channel
 
   alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserWatchedCategory}
+
+  alias BiddingPoc.AuctionItem, as: AuctionItemContext
   alias BiddingPocWeb.Presence
 
   intercept ~w(
-    auciton_started
-    auciton_ended
+    auction_started
+    auction_ended
     item_added
     item_removed
     )
@@ -27,8 +29,7 @@ defmodule BiddingPocWeb.AuctionChannel do
     user_id = socket.assigns.user.id
 
     auction_item_params
-    |> AuctionItem.new_item_from_params!()
-    |> AuctionItem.write_item(user_id)
+    |> AuctionItemContext.create_auction_item(user_id)
     |> case do
       {:ok, auction_item} ->
         broadcast_from(socket, "item_added", auction_item)
@@ -48,12 +49,7 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_in("get_auction_items", params, socket) do
-    search = Map.get(params, "search")
-    category_id = Map.get(params, "category_id")
-    skip = Map.get(params, "skip")
-    take = Map.get(params, "take")
-
-    items = AuctionItem.get_last_items(search, category_id, skip, take)
+    items = AuctionItemContext.get_auction_items(params)
 
     {:reply, {:ok, items}, socket}
   end

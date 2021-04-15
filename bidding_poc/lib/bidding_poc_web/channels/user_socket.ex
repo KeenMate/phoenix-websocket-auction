@@ -4,6 +4,8 @@ defmodule BiddingPocWeb.UserSocket do
   alias Phoenix.Token
   alias BiddingPoc.Database.{User}
 
+  channel "dummy:*", BiddingPocWeb.DummyChannel
+
   channel "users:lobby", BiddingPocWeb.UsersChannel
   channel "user:*", BiddingPocWeb.UserChannel
   channel "auction:lobby", BiddingPocWeb.AuctionChannel

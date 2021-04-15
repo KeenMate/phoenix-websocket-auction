@@ -12,6 +12,7 @@ defmodule BiddingPoc.Application do
       # Start the PubSub system
       {Phoenix.PubSub, name: BiddingPoc.PubSub},
       BiddingPocWeb.Presence,
+      # BiddingPocWeb.BiddingPostponeServer,
       # Start the Endpoint (http/https)
       BiddingPocWeb.Endpoint
       # Start a worker by calling: BiddingPoc.Worker.start_link(arg)
