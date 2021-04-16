@@ -9,8 +9,8 @@ defmodule BiddingPocWeb.AuctionChannel do
   intercept ~w(
     auction_started
     auction_ended
-    item_added
-    item_removed
+    # item_added
+    # item_removed
     )
 
   @impl true
@@ -31,19 +31,14 @@ defmodule BiddingPocWeb.AuctionChannel do
     auction_item_params
     |> AuctionItemContext.create_auction_item(user_id)
     |> case do
-      {:ok, auction_item} ->
-        broadcast_from(socket, "item_added", auction_item)
+      {:ok, auction_item} = res ->
+        # broadcast_from(socket, "item_added", auction_item)
 
-        new_watched_items =
-          socket
-          |> get_socket_watched_items()
-          |> toggle_watched_item(auction_item.id)
+        {:added, socket_with_new_watched_items} = toggle_watched_item(socket, auction_item.id)
 
-        socket_with_new_watched_items = assign_watched_items(socket, new_watched_items)
+        {:reply, res, socket_with_new_watched_items}
 
-        {:reply, {:ok, auction_item}, socket_with_new_watched_items}
-
-      {:error, :id_filled} = error ->
+      :error = error ->
         {:reply, error, socket}
     end
   end
@@ -92,7 +87,7 @@ defmodule BiddingPocWeb.AuctionChannel do
         socket
       )
       when event in ~w(item_added item_removed) do
-    if is_interesting_item?(item, get_user_id(socket)) do
+    if user_interested_in_item?(socket, item) do
       push(socket, event, item)
     end
 
@@ -101,18 +96,16 @@ defmodule BiddingPocWeb.AuctionChannel do
 
   def handle_out(event, %{item_id: item_id} = payload, socket)
       when event in ~w(auction_started auction_ended) do
-    watched = get_socket_watched_items(socket)
-
-    new_watched =
-      if is_item_watched?(watched, item_id) do
+    new_socket =
+      if is_item_watched?(socket, item_id) do
         push(socket, event, payload)
 
-        update_watched_if_auction_ended(event, watched, item_id)
+        update_watched_by_event(socket, event, item_id)
       else
-        watched
+        socket
       end
 
-    {:noreply, assign_watched_items(socket, new_watched)}
+    {:reply, payload, new_socket}
   end
 
   @impl true
@@ -122,32 +115,36 @@ defmodule BiddingPocWeb.AuctionChannel do
     {:noreply, socket}
   end
 
-  defp update_watched_if_auction_ended("auction_started", watched, _), do: watched
+  defp update_watched_by_event(socket, "auction_started", _), do: socket
 
-  defp update_watched_if_auction_ended("auction_ended", watched, item_id) do
-    {:removed, new_watched} = toggle_watched_item(watched, item_id)
-    new_watched
+  defp update_watched_by_event(socket, "auction_ended", item_id) do
+    {:removed, new_socket} = toggle_watched_item(socket, item_id)
+    new_socket
   end
 
-  defp assign_watched_items(socket, watched) do
-    assign(socket, :watched_item_ids, watched)
-  end
+  defp user_interested_in_item?(socket, item) do
+    user_id = get_user_id(socket)
 
-  defp is_interesting_item?(item, user_id) do
     item
     |> Map.get(:category)
     |> UserWatchedCategory.category_watched_by_user?(user_id)
   end
 
-  defp is_item_watched?(watched, item_id) do
-    Enum.member?(watched, item_id)
+  defp is_item_watched?(socket, item_id) do
+    socket
+    |> get_socket_watched_items()
+    |> Enum.member?(item_id)
   end
 
-  defp toggle_watched_item(watched, item_id) do
+  defp toggle_watched_item(socket, item_id) do
+    watched = get_socket_watched_items(socket)
+
     if Enum.member?(watched, item_id) do
-      {:removed, Enum.filter(watched, &(&1 != item_id))}
+      filtered = Enum.filter(watched, &(&1 != item_id))
+
+      {:removed, assign_watched_items(socket, filtered)}
     else
-      {:added, [item_id | watched]}
+      {:added, assign_watched_items(socket, [item_id | watched])}
     end
   end
 
@@ -155,6 +152,10 @@ defmodule BiddingPocWeb.AuctionChannel do
     socket
     |> Map.get(:assigns, %{})
     |> Map.get(:watched_item_ids, [])
+  end
+
+  defp assign_watched_items(socket, watched) do
+    assign(socket, :watched_item_ids, watched)
   end
 
   defp get_user_id(%{assigns: %{user: %{id: user_id}}}), do: user_id

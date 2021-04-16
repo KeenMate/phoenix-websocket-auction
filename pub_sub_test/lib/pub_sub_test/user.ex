@@ -1,36 +1,59 @@
 defmodule PubSubTest.User do
+  @moduledoc """
+  This GenServer acts as a WebSocket channel
+  """
+
   use GenServer
 
   require Logger
 
-  alias PubSubTest.AuctionItemServer
+  alias PubSubTest.{AuctionItemServer, PubSub}
 
-  def start_link(item_id) do
-    GenServer.start_link(__MODULE__, item_id, name: __MODULE__)
+  def start_link(arg) do
+    GenServer.start_link(__MODULE__, arg, name: via_tuple(arg.user_id))
   end
 
-  def init(item_id) do
+  def via_tuple(user_id) do
+    {:via, Registry, {PubSubTest.Registy, {:user, user_id}}}
+  end
+
+  def init(arg) do
     send(self(), :after_init)
 
-    {:ok, item_id}
+    {:ok, arg}
   end
 
-  def handle_info({:bid_placed, bid}, %{item_id: id} = state) do
-    Logger.info("Bid was placed")
+  def place_bid(user_id, amount) do
+    GenServer.cast(via_tuple(user_id), {:place_bid, amount})
+  end
+
+  def handle_cast({:place_bid, amount}, state) do
+    AuctionItemServer.place_bid(state.item_id, state.user_id, amount)
 
     {:noreply, state}
   end
 
-  def handle_info(:place_bid, state) do
-    GenServer.cast(AuctionItemServer, {:place_bid, 123})
+  def handle_info({:place_bid, :ok}, %{user_id: id, item_id: item_id} = state) do
+    Logger.debug("[User][#{id}] Bid successfully placed for item: #{item_id}")
 
     {:noreply, state}
   end
 
-  def handle_info(:after_init, %{item_id: id} = state) do
-    PubSub.subscribe(AuctionItemPubSub, "auction_item:" <> id)
+  def handle_info({:place_bid, :error, :not_started}, %{user_id: id, item_id: item_id} = state) do
+    Logger.debug("[User][#{id}] Bid was not placed for item: #{item_id}")
 
-    :erlang.send_after(1000, self(), :place_bid)
+    {:noreply, state}
+  end
+
+  def handle_info({:bid_placed, bid}, %{user_id: id, item_id: item_id} = state) do
+    Logger.debug("[User][#{id}] Bid was placed: #{bid} for item: #{item_id}")
+
+    {:noreply, state}
+  end
+
+  def handle_info(:after_init, %{user_id: id, item_id: item_id} = state) do
+    Phoenix.PubSub.subscribe(PubSub, "user:#{id}")
+    Phoenix.PubSub.subscribe(PubSub, "auction_item:#{item_id}")
 
     {:noreply, state}
   end

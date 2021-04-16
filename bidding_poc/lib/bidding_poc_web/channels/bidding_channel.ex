@@ -4,6 +4,8 @@ defmodule BiddingPocWeb.BiddingChannel do
   require Logger
 
   alias BiddingPoc.Database.{AuctionItem, UserInAuction, ItemBid}
+  alias BiddingPoc.AuctionItem, as: AuctionItemCtx
+  alias BiddingPoc.AuctionItemPubSub
   alias BiddingPocWeb.Presence
 
   @impl true
@@ -52,38 +54,67 @@ defmodule BiddingPocWeb.BiddingChannel do
     item_id = get_item_id(socket)
     user_id = get_user_id(socket)
 
-    item_id
-    |> AuctionItem.place_bid(user_id, amount)
+    AuctionItemCtx.place_bid(item_id, user_id, amount)
     |> case do
-      {:ok, item_bid} ->
-        [bid_with_data] = ItemBid.with_data([item_bid])
-        bid_with_data = Map.from_struct(bid_with_data)
-
-        broadcast_placed_bid(socket, bid_with_data)
-
-        {:reply, {:ok, bid_with_data}, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, response_from_place_bid_error(reason)}, socket}
+      :ok ->
+        {:reply, :ok, socket}
+      {:error, :process_not_alive} ->
+        {:reply, :error, socket}
     end
+
+    # item_id = get_item_id(socket)
+    # user_id = get_user_id(socket)
+
+    # item_id
+    # |> AuctionItem.place_bid(user_id, amount)
+    # |> case do
+    #   {:ok, item_bid} ->
+    #     [bid_with_data] = ItemBid.with_data([item_bid])
+    #     bid_with_data = Map.from_struct(bid_with_data)
+
+    #     broadcast_placed_bid(socket, bid_with_data)
+
+    #     {:reply, {:ok, bid_with_data}, socket}
+
+    #   {:error, reason} ->
+    #     {:reply, {:error, response_from_place_bid_error(reason)}, socket}
+    # end
   end
 
   @impl true
-  def handle_info(:after_join, socket) do
-    push(socket, "presence_state", get_item_users(socket))
+  def handle_info({:bid_placed, item_bid_id}, socket) do
+    push(socket, "place_bid_success", item_bid_id)
 
-    Presence.track(socket, get_user_id(socket), %{
-      id: get_user_id(socket),
-      username: socket.assigns.user.username,
-      user_joined: socket.assigns.user_joined
-    })
+    {:noreply, socket}
+  end
+
+  def handle_info(:after_join, socket) do
+    setup_presence(socket)
 
     # send init data to client
     socket
     |> push_auction_item()
     |> push_auction_item_biddings()
+    |> subscribe_to_auction_item_pubsub()
 
     {:noreply, socket}
+  end
+
+  defp subscribe_to_auction_item_pubsub(socket) do
+    Phoenix.PubSub.subscribe(AuctionItemPubSub, "bidding:#{get_item_id(socket)}")
+    socket
+  end
+
+  defp setup_presence(socket) do
+    user_id = get_user_id(socket)
+
+    push(socket, "presence_state", get_item_users(socket))
+
+    Presence.track(socket, user_id, %{
+      id: user_id,
+      username: socket.assigns.user.username,
+      user_joined: socket.assigns.user_joined
+    })
   end
 
   defp push_auction_item(socket) do
@@ -130,13 +161,13 @@ defmodule BiddingPocWeb.BiddingChannel do
     socket
   end
 
-  defp broadcast_placed_bid(socket, bid) do
-    broadcast_from(socket, "bid_placed", bid)
-  end
+  # defp broadcast_placed_bid(socket, bid) do
+  #   broadcast_from(socket, "bid_placed", bid)
+  # end
 
-  defp response_from_place_bid_error(:not_found) do
-    error_reason_map("Item not found")
-  end
+  # defp response_from_place_bid_error(:not_found) do
+  #   error_reason_map("Item not found")
+  # end
 
   defp response_from_place_bid_error(:small_bid) do
     error_reason_map("Insufficient bid entered")

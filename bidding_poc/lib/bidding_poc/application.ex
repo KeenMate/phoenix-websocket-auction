@@ -9,8 +9,14 @@ defmodule BiddingPoc.Application do
     children = [
       # Start the Telemetry supervisor
       BiddingPocWeb.Telemetry,
+      {Registry, name: Registy.AuctionItemRegisty, keys: :unique},
+      {DynamicSupervisor, strategy: :one_for_one, name: BiddingPoc.AuctionItemSupervisor},
       # Start the PubSub system
       {Phoenix.PubSub, name: BiddingPoc.PubSub},
+      # Auction item related events
+      {Phoenix.PubSub, name: BiddingPoc.AuctionItemPubSub},
+      {Phoenix.PubSub, name: BiddingPoc.UserPubSub},
+      # {Phoenix.PubSub, name: BiddingPoc.UserPubSub},
       BiddingPocWeb.Presence,
       # BiddingPocWeb.BiddingPostponeServer,
       # Start the Endpoint (http/https)

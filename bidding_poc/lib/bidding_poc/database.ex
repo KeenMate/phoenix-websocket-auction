@@ -672,7 +672,7 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec item_bidding_status(t()) :: {:ok, :ended | :onngoing | :postponed} | {:error, binary(), t()}
+    @spec item_bidding_status(t()) :: {:ok, :ended | :ongoing | :postponed} | {:error, binary(), t()}
     defp item_bidding_status(item) do
       now = DateTime.now!(Common.timezone())
       bidding_start_comparison = DateTime.compare(item.bidding_start, now)

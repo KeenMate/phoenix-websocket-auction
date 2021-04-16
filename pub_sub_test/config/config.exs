@@ -10,10 +10,10 @@ use Mix.Config
 # Configures the endpoint
 config :pub_sub_test, PubSubTestWeb.Endpoint,
   url: [host: "localhost"],
-  secret_key_base: "q4g/POGHUoXHIGw2YEtt36sspv5lX8tWXL5xwl7r7ylHXB691Dt9FHI6Y4dGvTRr",
-  render_errors: [view: PubSubTestWeb.ErrorView, accepts: ~w(json)],
-  pubsub: [name: PubSubTest.PubSub, adapter: Phoenix.PubSub.PG2],
-  live_view: [signing_salt: "p+2kaJys"]
+  secret_key_base: "KhURNKbytEbAAXJjCUPcObeGXUq9HQdtiirFnDOniZ9eAYTit7z0h6k2Dkw6jAlS",
+  render_errors: [view: PubSubTestWeb.ErrorView, accepts: ~w(json), layout: false],
+  pubsub_server: PubSubTest.PubSub,
+  live_view: [signing_salt: "HAMvtVM3"]
 
 # Configures Elixir's Logger
 config :logger, :console,

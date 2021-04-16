@@ -6,15 +6,18 @@ defmodule PubSubTest.Application do
   use Application
 
   def start(_type, _args) do
-    # List all child processes to be supervised
     children = [
-      # Start the endpoint when the application starts
+      # Start the Telemetry supervisor
+      PubSubTestWeb.Telemetry,
+      {Registry, name: PubSubTest.Registy, keys: :unique},
+      {DynamicSupervisor, strategy: :one_for_one, name: PubSubTest.AuctionItemSupervisor},
+      # Start the PubSub system
+      {Phoenix.PubSub, name: PubSubTest.PubSub},
+      # Start the Endpoint (http/https)
       PubSubTestWeb.Endpoint,
-      {Phoenix.PubSub, name: PubSubTest.AuctionItemPubSub},
-      {PubSubTest.AuctionItemServer, [999]},
-      {PubSubTest.User, [999]}
-      # Starts a worker by calling: PubSubTest.Worker.start_link(arg)
-      # {PubSubTest.Worker, arg},
+      # Start a worker by calling: PubSubTest.Worker.start_link(arg)
+      # {PubSubTest.Worker, arg}
+      {PubSubTest.Auctions, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

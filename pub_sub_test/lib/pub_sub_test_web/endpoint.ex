@@ -7,12 +7,14 @@ defmodule PubSubTestWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_pub_sub_test_key",
-    signing_salt: "qnXVSKav"
+    signing_salt: "5UgIZ6W1"
   ]
 
   socket "/socket", PubSubTestWeb.UserSocket,
     websocket: true,
     longpoll: false
+
+  socket "/live", Phoenix.LiveView.Socket, websocket: [connect_info: [session: @session_options]]
 
   # Serve at "/" the static files from "priv/static" directory.
   #
@@ -29,6 +31,10 @@ defmodule PubSubTestWeb.Endpoint do
   if code_reloading? do
     plug Phoenix.CodeReloader
   end
+
+  plug Phoenix.LiveDashboard.RequestLogger,
+    param_key: "request_logger",
+    cookie_key: "request_logger"
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
