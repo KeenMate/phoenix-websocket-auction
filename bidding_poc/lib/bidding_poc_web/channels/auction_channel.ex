@@ -29,7 +29,8 @@ defmodule BiddingPocWeb.AuctionChannel do
     user_id = socket.assigns.user.id
 
     auction_item_params
-    |> AuctionItemContext.create_auction_item(user_id)
+    |> AuctionItem.new_item_from_params!()
+    |> BiddingPoc.create_auction(user_id)
     |> case do
       {:ok, auction_item} = res ->
         # broadcast_from(socket, "item_added", auction_item)

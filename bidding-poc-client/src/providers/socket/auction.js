@@ -1,5 +1,5 @@
 import {writable} from "svelte/store"
-import {pushMessage} from "./common"
+import {pushSocketMessage} from "./common"
 
 export const auctionChannel = writable(null)
 
@@ -28,7 +28,7 @@ export function initAuctionChannel(socket) {
 export async function createAuction(auction) {
 	const channel = await auctionChannelAwaiter
 
-	return pushMessage(channel, "create_auction", {
+	return pushSocketMessage(channel, "create_auction", {
 		title: auction.title,
 		category_id: auction.categoryId,
 		start_price: auction.startPrice,
@@ -40,7 +40,7 @@ export async function createAuction(auction) {
 export async function getAuctionItems(search, categoryId, page, pageSize) {
 	const channel = await auctionChannelAwaiter
 
-	return pushMessage(channel, "get_auction_items", {
+	return pushSocketMessage(channel, "get_auction_items", {
 		search: search || null,
 		category_id: categoryId || null,
 		skip: page * pageSize,
@@ -51,7 +51,7 @@ export async function getAuctionItems(search, categoryId, page, pageSize) {
 export async function getAuctionCategories() {
 	const channel = await auctionChannelAwaiter
 
-	return pushMessage(channel, "get_auction_categories")
+	return pushSocketMessage(channel, "get_auction_categories")
 }
 
 function joinChannel(channel) {

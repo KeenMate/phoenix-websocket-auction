@@ -52,6 +52,8 @@ defmodule PubSubTest.AuctionItemServer do
   def handle_info(:after_init, state) do
     # Phoenix.PubSub.subscribe(PubSub, "auction_item:#{id}")
 
+    Phoenix.PubSub.broadcast(PubSub, "user:#{1}", :something)
+
     :erlang.send_after(20000, self(), :start_bidding)
 
     {:noreply, state}

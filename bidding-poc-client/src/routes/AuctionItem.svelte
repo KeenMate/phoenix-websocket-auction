@@ -68,6 +68,7 @@
 			.then(() => {
 				toastr.success("Auction joined!")
 				console.log("Auction joined")
+				auctionItem.user_joined = true
 			})
 			.catch(error => {
 				console.error("Could not join auction", error)

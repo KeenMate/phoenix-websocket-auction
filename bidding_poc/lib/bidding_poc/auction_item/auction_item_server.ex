@@ -11,6 +11,7 @@ defmodule BiddingPoc.AuctionItemServer do
   alias BiddingPoc.UserPubSub
 
   def start_link(arg) do
+    Logger.debug("Auction item server starting")
     GenServer.start_link(__MODULE__, arg, name: via_tuple(arg.item_id))
   end
 
@@ -20,6 +21,8 @@ defmodule BiddingPoc.AuctionItemServer do
 
   @impl true
   def init(arg) do
+    Logger.debug("Auction item server starting")
+
     send(self(), {:after_init, Map.get(arg, :initialy_started, false)})
 
     {
@@ -31,26 +34,32 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   @spec place_bid(pos_integer(), pos_integer(), pos_integer()) :: :ok
-  def place_bid(item_id, user_id, amount) when is_number(item_id) and is_number(user_id) and is_number(amount) do
+  def place_bid(item_id, user_id, amount)
+      when is_number(item_id) and is_number(user_id) and is_number(amount) do
     GenServer.cast(via_tuple(item_id), {:place_bid, user_id, amount})
   end
 
   @impl true
-  def handle_cast({:place_bid, user_id, amount}, %{item_id: item_id} = state) when is_number(user_id) and is_number(amount) do
+  def handle_cast({:place_bid, user_id, amount}, %{item_id: item_id} = state)
+      when is_number(user_id) and is_number(amount) do
     new_state =
       AuctionItem.place_bid(item_id, user_id, amount)
       |> case do
         {:ok, bid} ->
           after_bid_placed(state, user_id, bid)
+
         {:error, :small_bid} = error ->
           broadcast_bid_placed_error(user_id, error)
           state
+
         {:error, :not_found} = error ->
           broadcast_bid_placed_error(user_id, error)
           state
+
         {:error, :bidding_ended} = error ->
           broadcast_bid_placed_error(user_id, error)
           state
+
         {:error, :item_postponed} = error ->
           broadcast_bid_placed_error(user_id, error)
           state
@@ -60,6 +69,12 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   @impl true
+  def handle_info(:bidding_started, %{item_id: item_id} = state) do
+    Phoenix.PubSub.broadcast(AuctionItemPubSub, "auction_item:#{item_id}", :bidding_started)
+
+    {:noreply, state}
+  end
+
   def handle_info({:after_init, initialy_started}, state) do
     state.item_id
     |> AuctionItem.get_by_id()
@@ -75,18 +90,19 @@ defmodule BiddingPoc.AuctionItemServer do
           state
           |> Map.put(:item, item)
         }
+
       {:error, :not_found} ->
-        Logger.error("Attempted to start auction item server with auction item id that was not found in database", item_id: inspect(state.item_id))
+        Logger.error(
+          "Attempted to start auction item server with auction item id that was not found in database",
+          item_id: inspect(state.item_id)
+        )
+
         {:stop, {:error, :not_found}, state}
     end
   end
 
-  defp broadcast_bid_placed_error(user_id, error) do
-    Phoenix.PubSub.broadcast(UsersPubSub, "user:#{user_id}", {:bid_place, error})
-  end
-
   defp after_bid_placed(state, user_id, item_bid) do
-    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, {:ok, item_bid.id}})
+    send_user_bid_placed(user_id, item_bid)
 
     state
     |> broadcast_bid_placed(item_bid)
@@ -94,6 +110,14 @@ defmodule BiddingPoc.AuctionItemServer do
 
     # TODO: Broadcast avarage bidding to yet to be created channel for "my auctions"
     |> broadcast_bid_average_changed()
+  end
+
+  defp send_user_bid_placed(user_id, item_bid) do
+    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, item_bid.id})
+  end
+
+  defp broadcast_bid_placed_error(user_id, error) do
+    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_place, error})
   end
 
   defp update_average_bidding(state, item_bid) do
@@ -107,7 +131,7 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp register_bidding_started(%AuctionItem{} = item) do
-    now = DateTime.now!(Common.timezone)
+    now = DateTime.now!(Common.timezone())
     start = item.bidding_start
 
     if DateTime.compare(start, now) == :gt do
@@ -118,7 +142,7 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp register_bidding_ended(%AuctionItem{} = item) do
-    now = DateTime.now!(Common.timezone)
+    now = DateTime.now!(Common.timezone())
     ended = item.bidding_end
 
     if DateTime.compare(ended, now) == :gt do
@@ -129,12 +153,22 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp broadcast_bid_average_changed(state) do
-    Phoenix.PubSub.broadcast(BiddingPoc.AuctionItemPubSub, "auctions:lobby", {:average_bid, state.bids_average})
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionItemPubSub,
+      "auctions:lobby",
+      {:average_bid, state.bids_average}
+    )
+
     state
   end
 
   defp broadcast_bid_placed(state, item_bid) do
-    Phoenix.PubSub.broadcast(BiddingPoc.AuctionItemPubSub, "bidding:#{state.item_id}", {:bid_placed, item_bid.id})
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionItemPubSub,
+      "bidding:#{state.item_id}",
+      {:bid_placed, item_bid.id}
+    )
+
     state
   end
 

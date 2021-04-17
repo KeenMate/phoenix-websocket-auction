@@ -23,6 +23,7 @@ defmodule BiddingPocWeb.BiddingChannel do
           send(self(), :after_join)
 
           socket_with_item_id = put_item_id(socket, parsed_item_id)
+
           {
             :ok,
             socket_with_item_id
@@ -54,10 +55,11 @@ defmodule BiddingPocWeb.BiddingChannel do
     item_id = get_item_id(socket)
     user_id = get_user_id(socket)
 
-    AuctionItemCtx.place_bid(item_id, user_id, amount)
+    BiddingPoc.place_bid(item_id, user_id, amount)
     |> case do
       :ok ->
         {:reply, :ok, socket}
+
       {:error, :process_not_alive} ->
         {:reply, :error, socket}
     end
@@ -128,8 +130,11 @@ defmodule BiddingPocWeb.BiddingChannel do
           |> Map.put(:user_joined, user_joined?(socket))
 
         push(socket, "auction_item", Map.from_struct(updated_item_with_data))
+
       {:error, reason} when reason in [:item_not_found, :user_not_found, :category_not_found] ->
-        Logger.error("Unexpected error occured while loading auction item that has an active ws channel")
+        Logger.error(
+          "Unexpected error occured while loading auction item that has an active ws channel"
+        )
     end
 
     socket

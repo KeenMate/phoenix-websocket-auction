@@ -14,7 +14,7 @@ export function createSocket(token) {
 	})
 }
 
-export function pushMessage(channel, type, payload = {}) {
+export function pushSocketMessage(channel, type, payload = {}) {
 	return new Promise((resolve, reject) => {
 		channel.push(type, payload)
 			.receive("ok", ctx => {

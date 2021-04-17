@@ -1,6 +1,6 @@
 import {readable} from "svelte/store"
 import {Presence} from "phoenix"
-import {pushMessage} from "./common"
+import {pushSocketMessage} from "./common"
 
 export function initBiddingChannel(socket, itemId, listeners = {}) {
 	const channel = socket.channel(`bidding:${itemId}`, {})
@@ -51,9 +51,9 @@ export function initBiddingChannel(socket, itemId, listeners = {}) {
 }
 
 export function joinBidding(channel) {
-	return pushMessage(channel, "join_bidding")
+	return pushSocketMessage(channel, "join_bidding")
 }
 
 export function placeBid(channel, amount) {
-	return pushMessage(channel, "place_bid", {amount})
+	return pushSocketMessage(channel, "place_bid", {amount})
 }

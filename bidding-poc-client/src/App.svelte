@@ -8,7 +8,8 @@
 	import {getCurrentUser} from "./providers/user"
 	import {createSocket, socket} from "./providers/socket/common"
 	import Navigation from "./components/navigatioin/Navigation.svelte"
-	import {initUsersChannel, usersChannel} from "./providers/socket/user"
+	import {initUserChannel, initUsersChannel, usersChannel} from "./providers/socket/user"
+	import {get} from "svelte/store"
 
 	$: $authTokenStore && onAuthToken($authTokenStore)
 
@@ -27,8 +28,9 @@
 	}
 
 	function onAuthToken(token) {
-		initUser(token)
-		initSocket(token)
+		initUser(token).then(() => {
+			initSocket(token)
+		})
 	}
 
 	async function initUser(token) {
@@ -50,29 +52,6 @@
 			throw error
 		}
 	}
-	
-	function dummyChannel(newSocket) {
-		// const dummy1 = newSocket.channel("dummy:", {})
-		// dummy1.on("tick", () => {
-		// 	console.log("Dummy1 ticked")
-		// })
-		// dummy1.join()
-		//
-		// const dummy2 = newSocket.channel("dummy:blocking", {})
-		// dummy2.join()
-		// .receive("ok", () => {
-		// 	setTimeout(() => {
-		// 		console.log("Starting Req/Res")
-		// 		dummy2.push("get", {})
-		// 			.receive("ok", ctx => {
-		// 				console.log("Response", ctx)
-		// 			})
-		// 		.receive("timeout", () => {
-		// 			console.log("Timed out!")
-		// 		})
-		// 	}, 2000)
-		// })
-	}
 
 	function initSocket(token) {
 		try {
@@ -82,12 +61,25 @@
 
 			initAuctionChannel(newSocket).then(auctionChannel.set)
 			initUsersChannel(newSocket).then(usersChannel.set)
-			
-			dummyChannel(newSocket)
+			console.log("User is", get(userStore))
+			initUserChannel(
+				newSocket,
+				get(userStore).id,
+				{onPlaceBidSuccess, onPlaceBidError}
+			)
 		} catch (error) {
 			console.error("Could not init socket: ", error)
 			toastr.error("Could not initiate real-time connection to the server")
 		}
+	}
+	
+	function onPlaceBidSuccess() {
+		toastr.success("Bid placed!")
+	}
+	
+	function onPlaceBidError(reason) {
+		console.error("Could not place bid: ", reason)
+		toastr.error("Bid could not be placed")
 	}
 </script>
 
