@@ -7,11 +7,10 @@ defmodule BiddingPoc.AuctionItemServer do
   require Logger
 
   alias BiddingPoc.Common
-  alias BiddingPoc.Database.{AuctionItem}
+  alias BiddingPoc.Database.{AuctionItem, ItemBid}
   alias BiddingPoc.UserPubSub
 
   def start_link(arg) do
-    Logger.debug("Auction item server starting")
     GenServer.start_link(__MODULE__, arg, name: via_tuple(arg.item_id))
   end
 
@@ -21,8 +20,6 @@ defmodule BiddingPoc.AuctionItemServer do
 
   @impl true
   def init(arg) do
-    Logger.debug("Auction item server starting")
-
     send(self(), {:after_init, Map.get(arg, :initialy_started, false)})
 
     {
@@ -104,8 +101,10 @@ defmodule BiddingPoc.AuctionItemServer do
   defp after_bid_placed(state, user_id, item_bid) do
     send_user_bid_placed(user_id, item_bid)
 
+    [enhanced_bid] = ItemBid.with_data([item_bid])
+
     state
-    |> broadcast_bid_placed(item_bid)
+    |> broadcast_bid_placed(enhanced_bid)
     |> update_average_bidding(item_bid)
 
     # TODO: Broadcast avarage bidding to yet to be created channel for "my auctions"
@@ -113,7 +112,7 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp send_user_bid_placed(user_id, item_bid) do
-    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, item_bid.id})
+    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, item_bid})
   end
 
   defp broadcast_bid_placed_error(user_id, error) do
@@ -166,7 +165,7 @@ defmodule BiddingPoc.AuctionItemServer do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
       "bidding:#{state.item_id}",
-      {:bid_placed, item_bid.id}
+      {:bid_placed, Map.from_struct(item_bid)}
     )
 
     state

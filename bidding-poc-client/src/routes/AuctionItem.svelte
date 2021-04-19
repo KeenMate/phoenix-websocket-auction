@@ -4,6 +4,8 @@
 	import toastr from "../helpers/toastr-helpers"
 	import {socket} from "../providers/socket/common"
 	import {initBiddingChannel, joinBidding, placeBid} from "../providers/socket/bidding"
+	import eventBus from "../helpers/event-bus"
+	import {minuteer} from "../stores/other"
 	import Notification from "../components/ui/Notification.svelte"
 	import AuctionItemDetail from "../components/auction-item/AuctionItemDetail.svelte"
 	import AuctionItemBiddings from "../components/auction-item/AuctionItemBiddings.svelte"
@@ -21,8 +23,6 @@
 	$: paramAuctionItemId = Number(params.id)
 
 	$: $socket && initBiddingChannel($socket, paramAuctionItemId, {
-		onBidPlaced,
-		onUserJoined,
 		onAuctionItem: item => auctionItem = item,
 		onBiddings: payload => biddings = payload.biddings
 	})
@@ -35,7 +35,14 @@
 			toastr.error("Could not open connection for this auction item")
 		})
 
+	$: $minuteer && (biddings = biddings)
+
 	$: noBidding = m(auctionItem.bidding_start).isAfter() || m(auctionItem.bidding_end).isBefore()
+
+	eventBus.on("place_bid_error", onPlaceBidError)
+	eventBus.on("bid_placed_success", onPlaceBidSuccess)
+	eventBus.on("bid_placed", onBidPlaced)
+	eventBus.on("user_joined", onUserJoined)
 
 	function onBidPlaced(bid) {
 		console.log("bidPlaced: ", bid)
@@ -49,13 +56,6 @@
 		console.log("userJoined: ", user)
 		if (!auctionItem)
 			return
-
-		// users.update(x => {
-		// 	const result = [user, ...x]
-		//
-		// 	console.log("User joined", result)
-		// 	return result // sortBy(result, )
-		// })
 	}
 
 	function onJoinBidding() {
@@ -78,9 +78,9 @@
 
 	function onPlaceBid({detail: bid}) {
 		placeBid(auctionItemChannel, bid)
-			.then(newBid => {
-				toastr.success("Bid placed!", {timeOut: "2000"})
-				onBidPlaced(newBid)
+			.then(() => {
+				toastr.success("Bid place requested", {timeOut: "1000"})
+				// onBidPlaced(newBid)
 			})
 			.catch(error => {
 				console.error("Could not place bid", error)
@@ -88,10 +88,40 @@
 			})
 	}
 
+	function onPlaceBidSuccess() {
+		toastr.success("Bid placed successfully")
+	}
+
+	function onPlaceBidError(error) {
+		switch (error.reason) {
+			case "small_bid":
+				toastr.error("Bid you have entered is too small")
+				break
+			case "not_found":
+				toastr.error("Bid could not be placed because auction was not found (probably deleted)")
+				break
+			case "item_postponed":
+				toastr.error("Bid could not be placed because auction has not started yet")
+				break
+			case "bidding_ended":
+				toastr.error("Bid could not be placed because auction has already ended")
+				break
+
+			default:
+				toastr.error("Bid could not be placed")
+				console.error("Could not place bid", error)
+		}
+	}
+
 	onDestroy(() => {
 		if (auctionItemChannel)
 			// todo: check if user is joined (in that case leave channel open - it should be stored globally elsewhere)
 			auctionItemChannel.leave()
+
+		eventBus.detach("bid_placed", onBidPlaced)
+		eventBus.detach("bid_placed_success", onPlaceBidSuccess)
+		eventBus.detach("place_bid_error", onPlaceBidError)
+		eventBus.detach("user_joined", onUserJoined)
 	})
 </script>
 

@@ -60,35 +60,23 @@ defmodule BiddingPocWeb.BiddingChannel do
       :ok ->
         {:reply, :ok, socket}
 
-      {:error, :process_not_alive} ->
-        {:reply, :error, socket}
+      {:error, :process_not_alive} = error ->
+        {:reply, error, socket}
     end
-
-    # item_id = get_item_id(socket)
-    # user_id = get_user_id(socket)
-
-    # item_id
-    # |> AuctionItem.place_bid(user_id, amount)
-    # |> case do
-    #   {:ok, item_bid} ->
-    #     [bid_with_data] = ItemBid.with_data([item_bid])
-    #     bid_with_data = Map.from_struct(bid_with_data)
-
-    #     broadcast_placed_bid(socket, bid_with_data)
-
-    #     {:reply, {:ok, bid_with_data}, socket}
-
-    #   {:error, reason} ->
-    #     {:reply, {:error, response_from_place_bid_error(reason)}, socket}
-    # end
   end
 
   @impl true
-  def handle_info({:bid_placed, item_bid_id}, socket) do
-    push(socket, "place_bid_success", item_bid_id)
+  def handle_info({:bid_placed, item_bid}, socket) do
+    push(socket, "bid_placed", item_bid)
 
     {:noreply, socket}
   end
+
+  # def handle_info({:bid_place, {:error, reason}}, socket) when is_atom(reason) do
+  #   push(socket, "place_bid_error", %{reason: Atom.to_string(reason)})
+
+  #   {:noreply, socket}
+  # end
 
   def handle_info(:after_join, socket) do
     setup_presence(socket)

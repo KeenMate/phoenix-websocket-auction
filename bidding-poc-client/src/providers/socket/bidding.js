@@ -1,6 +1,7 @@
 import {readable} from "svelte/store"
 import {Presence} from "phoenix"
 import {pushSocketMessage} from "./common"
+import eventBus from "../../helpers/event-bus"
 
 export function initBiddingChannel(socket, itemId, listeners = {}) {
 	const channel = socket.channel(`bidding:${itemId}`, {})
@@ -26,12 +27,12 @@ export function initBiddingChannel(socket, itemId, listeners = {}) {
 	})
 
 	// Regular messages
-	listeners.onBidPlaced && channel.on("bid_placed", ctx => {
-		listeners.onBidPlaced(ctx)
+	channel.on("bid_placed", ctx => {
+		eventBus.emit("bid_placed", null, ctx)
 	})
 	// User is now part of bidding
-	listeners.onUserJoined && channel.on("user_joined", ctx => {
-		listeners.onUserJoined(ctx)
+	channel.on("user_joined", ctx => {
+		eventBus.emit("user_joined", null, ctx)
 	})
 
 	return new Promise((resolve, reject) => {

@@ -64,22 +64,12 @@
 			console.log("User is", get(userStore))
 			initUserChannel(
 				newSocket,
-				get(userStore).id,
-				{onPlaceBidSuccess, onPlaceBidError}
+				get(userStore).id
 			)
 		} catch (error) {
 			console.error("Could not init socket: ", error)
 			toastr.error("Could not initiate real-time connection to the server")
 		}
-	}
-	
-	function onPlaceBidSuccess() {
-		toastr.success("Bid placed!")
-	}
-	
-	function onPlaceBidError(reason) {
-		console.error("Could not place bid: ", reason)
-		toastr.error("Bid could not be placed")
 	}
 </script>
 

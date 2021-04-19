@@ -19,6 +19,7 @@
     "svelte": "^3.0.0"
   },
   "dependencies": {
+    "js-event-bus": "^1.0.3",
     "lodash": "^4.17.21",
     "moment": "^2.29.1",
     "node-sass": "^5.0.0",

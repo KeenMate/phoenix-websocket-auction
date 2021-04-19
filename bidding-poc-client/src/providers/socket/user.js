@@ -1,5 +1,6 @@
 import {writable} from "svelte/store"
 import {pushSocketMessage} from "./common"
+import eventBus from "../../helpers/event-bus"
 
 export const usersChannel = writable(null)
 
@@ -28,16 +29,16 @@ export function initUsersChannel(socket) {
 		})
 }
 
-export function initUserChannel(socket, userId, listeners = {}) {
+export function initUserChannel(socket, userId) {
 	const userChannel = socket.channel(`user:${userId}`, {})
 
-	listeners.onPlaceBidSuccess && userChannel.on("place_bid_success", () => {
-		listeners.onPlaceBidSuccess()
+	userChannel.on("place_bid_success", ctx => {
+		eventBus.emit("place_bid_success", null, ctx)
 	})
-	listeners.onPlaceBidError && userChannel.on("place_bid_error", reason => {
-		listeners.onPlaceBidError(reason)
+	userChannel.on("place_bid_error", ctx => {
+		eventBus.emit("place_bid_error", null, ctx)
 	})
-	
+
 	return joinChannel(userChannel)
 		.then(x => {
 			console.log("User channel joined")

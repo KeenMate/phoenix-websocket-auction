@@ -42,10 +42,10 @@ defmodule BiddingPoc do
   end
 
   defp auction_item_server_alive?(item_id) do
-    Registry.lookup(Registy.AuctionItemRegisty, AuctionItemServer.via_tuple(item_id))
+    Registry.lookup(Registry.AuctionItemRegistry, item_id)
     |> case do
       [] -> false
-      [_ | []] -> true
+      [_] -> true
     end
   end
 
