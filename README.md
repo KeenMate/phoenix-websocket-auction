@@ -1,1 +1,1 @@
-# bidding_poc
+# phoenix-websocket-auction
