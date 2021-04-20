@@ -10,9 +10,10 @@ defmodule BiddingPocWeb.AuctionChannel do
   intercept ~w(
     auction_started
     auction_ended
-    # item_added
-    # item_removed
     )
+
+  # item_added
+  # item_removed
 
   @impl true
   def join("auction:lobby", _payload, socket) do
@@ -68,16 +69,14 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_in("delete_auction", %{"item_id" => item_id}, socket) do
-    user = socket.assigns.user
+    socket
+    |> AuctionManager.remove_auction(item_id, get_user_id(socket))
+    |> case do
+      :ok ->
+        {:reply, :ok, socket}
 
-    if AuctionItem.user_id_authorized?(item_id, user.id) do
-      :ok = AuctionItem.delete_item(item_id)
-
-      broadcast_from(socket, "item_removed", item_id)
-
-      {:reply, :ok, socket}
-    else
-      {:reply, {:error, :forbidden}, socket}
+      {:error, :forbidden} = error ->
+        {:reply, error, socket}
     end
   end
 

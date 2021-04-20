@@ -108,10 +108,9 @@
 						on:change={({detail: d}) => postponedFor = Number(d)}
 					>
 						<option value="0">No delay</option>
-						<option value="20">20 seconds</option>
-						<option value="40">40 seconds</option>
-						<option value="60">60 seconds</option>
-						<option value="80">80 seconds</option>
+						<option value="15">15 seconds</option>
+						<option value="30">30 seconds</option>
+						<option value="45">45 seconds</option>
 					</BulmaSelect>
 				</div>
 				<div class="column is-narrow">

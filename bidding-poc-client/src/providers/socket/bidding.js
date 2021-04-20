@@ -44,15 +44,19 @@ export function initBiddingChannel(socket, itemId, listeners = {}) {
 					users
 				})
 			})
-			.receive("errpr", ctx => {
-				console.error("Could not join auction item channel", ctx)
-				reject(ctx)
+			.receive("error", error => {
+				console.error("Could not join auction item channel", error)
+				reject({channel, error})
 			})
 	})
 }
 
 export function joinBidding(channel) {
 	return pushSocketMessage(channel, "join_bidding")
+}
+
+export function leaveBidding(channel) {
+	return pushSocketMessage(channel, "leave_bidding")
 }
 
 export function placeBid(channel, amount) {

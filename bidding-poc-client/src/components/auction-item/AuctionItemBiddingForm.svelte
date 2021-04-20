@@ -10,6 +10,9 @@
 	const dispatch = createEventDispatcher()
 
 	function onPlaceBid() {
+		if (!currentBid)
+			return
+		
 		dispatch("placeBid", currentBid)
 		currentBid = 0
 	}
@@ -18,16 +21,21 @@
 		dispatch("joinBidding")
 	}
 
-	function onSubmit(ev) {
-		ev.preventDefault()
-
-		if (userJoined)
-			currentBid && onPlaceBid()
-		else
-			onJoinBidding()
+	function onLeaveBidding() {
+		dispatch("leaveBidding")
 	}
+
+	// function onSubmit(ev) {
+	// 	ev.preventDefault()
+	//
+	// 	if (userJoined)
+	// 		currentBid && onPlaceBid()
+	// 	else
+	// 		onJoinBidding()
+	// }
 </script>
-<form class="mb-3" on:submit={onSubmit}>
+
+<div class="mb-3">
 	<div class="columns">
 		<div class="column">
 			{#if userJoined}
@@ -42,10 +50,17 @@
 		</div>
 		<div class="column is-narrow">
 			{#if userJoined}
-				<TheButton isLink>Place bid</TheButton>
+				<TheButton isLink on:click={onPlaceBid}>
+					Place bid
+				</TheButton>
+				<TheButton isWarning on:click={onLeaveBidding}>
+					Leave bidding
+				</TheButton>
 			{:else}
-				<TheButton isPrimary>Join bidding</TheButton>
+				<TheButton isPrimary on:click={onJoinBidding}>
+					Join bidding
+				</TheButton>
 			{/if}
 		</div>
 	</div>
-</form>
+</div>

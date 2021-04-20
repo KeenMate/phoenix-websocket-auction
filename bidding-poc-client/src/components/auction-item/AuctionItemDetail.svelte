@@ -1,7 +1,10 @@
 <script>
+	import {createEventDispatcher} from "svelte"
 	import m from "moment"
 	import Card from "../ui/Card.svelte"
-
+	import TheButton from "../ui/TheButton.svelte"
+	
+	const dispatch = createEventDispatcher()
 	export let title = ""
 	export let category_id = 0
 	export let category = ""
@@ -28,22 +31,38 @@
 			? "Invalid date"
 			: date.toISOString().substr(0, 10)
 	}
+	
+	function onDeleteClick() {
+		if (!confirm("Do you really want to delete this auction?"))
+			return
+		
+		dispatch("deleteAuction")
+	}
 </script>
 
 <Card>
 	{#if title || category_id}
 		<div class="media">
 			<div class="media-content">
-				{#if title}
-					<p class="title is-4">{title}</p>
-				{/if}
-				{#if category_id}
-					<p class="subtitle is-6">
-						<span class="tag is-primary">{category}</span>
-					</p>
-				{/if}
+				<div class="level">
+					<div class="level-left is-block">
+						{#if title}
+							<p class="title is-4">{title}</p>
+						{/if}
+						{#if category_id}
+							<p class="subtitle is-6">
+								<span class="tag is-primary">{category}</span>
+							</p>
+						{/if}
+					</div>
+					<div class="level-right">
+						<TheButton isDanger on:click={onDeleteClick}>
+							Delete
+						</TheButton>
+						<!-- todo: Render `edit` button if user_id is same as owner id -->
+					</div>
+				</div>
 			</div>
-			<!-- todo: Render `edit` button if user_id is same as owner id -->
 		</div>
 	{/if}
 

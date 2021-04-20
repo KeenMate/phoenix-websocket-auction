@@ -1,5 +1,6 @@
 import {writable} from "svelte/store"
 import {pushSocketMessage} from "./common"
+import eventBus from "../../helpers/event-bus"
 
 export const auctionChannel = writable(null)
 
@@ -72,6 +73,7 @@ function listenItemAdded(channel) {
 	channel.on("item_added", msg => {
 		// todo: Send message to common EventBus
 		console.log("Item added", msg)
+		eventBus.emit("item_added", null, msg)
 	})
 }
 
@@ -79,6 +81,7 @@ function listenItemRemoved(channel) {
 	channel.on("item_removed", msg => {
 		// todo: Send message to common EventBus
 		console.log("Item removed", msg)
+		eventBus.emit("item_removed", null, msg)
 	})
 }
 
@@ -86,6 +89,7 @@ function listenAuctionStarted(channel) {
 	channel.on("auction_started", msg => {
 		// todo: Send message to common EventBus
 		console.log("Auction started: ", msg)
+		eventBus.emit("auction_started", null, msg)
 	})
 }
 
@@ -93,5 +97,11 @@ function listenAuctionEnded(channel) {
 	channel.on("auction_ended", msg => {
 		// todo: Send message to common EventBus
 		console.log("Auction ended: ", msg)
+		eventBus.emit("auction_ended", null, msg)
 	})
+}
+
+export async function deleteAuction(auctionId) {
+	const channel = await auctionChannelAwaiter
+	return pushSocketMessage(channel, "delete_auction", {item_id: auctionId})
 }

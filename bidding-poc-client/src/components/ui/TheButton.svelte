@@ -5,6 +5,7 @@
 	export let isDanger = false
 	export let isWarning = false
 	export let isSuccess = false
+	export let type = "button"
 </script>
 
 <button
@@ -15,6 +16,7 @@
 	class:is-danger={isDanger}
 	class:is-warning={isWarning}
 	class:is-success={isSuccess}
+	{type}
 	on:click
 >
 	<slot />
