@@ -70,7 +70,7 @@ steps:
     - assemble release
     image: plugins/docker
     settings:
-      repo: registry.km8.es/rollup-test
+      repo: registry.km8.es/phoenix-websocket-auction
       tags: 
       - "latest"
       # - "${DRONE_TAG}"
