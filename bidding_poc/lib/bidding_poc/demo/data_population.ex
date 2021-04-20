@@ -1,11 +1,17 @@
 defmodule BiddingPoc.DataPopulation do
   alias BiddingPoc.Database.User
+  alias BiddingPoc.Database.AuctionItemCategory
 
   def insert_users() do
     dummy_users()
     |> Enum.map(fn user ->
       User.create_user(user.username, user.password)
     end)
+  end
+
+  def insert_categories() do
+    dummy_categories()
+    |> Enum.map(fn category -> AuctionItemCategory.create_category(category) end)
   end
 
   defp dummy_users() do
@@ -110,6 +116,14 @@ defmodule BiddingPoc.DataPopulation do
       %{username: "Robbins, Alexander", password: "1234", is_admin: false},
       %{username: "Vance, Ulric", password: "1234", is_admin: false},
       %{username: "May, Christopher", password: "1234", is_admin: false}
-      ]
+    ]
+  end
+
+  defp dummy_categories() do
+    [
+      "Furniture",
+      "Paintings",
+      "Jewellery"
+    ]
   end
 end
