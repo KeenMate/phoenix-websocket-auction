@@ -47,13 +47,13 @@ defmodule BiddingPoc.Application do
   defp initialize_amnesia() do
     Amnesia.start()
 
-    try do
-      BiddingPoc.Database.create!([memory: [node()]])
-      :ok = BiddingPoc.Database.wait(15000)
+    # try do
+    BiddingPoc.Database.create!(disk: [node()])
+    :ok = BiddingPoc.Database.wait(15000)
 
-      BiddingPoc.DataPopulation.insert_users()
-    after
-      Amnesia.stop()
-    end
+    BiddingPoc.DataPopulation.insert_users()
+    # after
+    # Amnesia.stop()
+    # end
   end
 end
