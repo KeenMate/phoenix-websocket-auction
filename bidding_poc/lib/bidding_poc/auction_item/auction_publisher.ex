@@ -1,6 +1,7 @@
 defmodule BiddingPoc.AuctionPublisher do
   def broadcast_item_removed(socket, item_id) do
-
+    # TODO: This is not OK.. This library should not rely on Phoenix...
+    Phoenix.Channel.broadcast_from(socket, "item_removed", %{item_id: item_id})
   end
 
   def broadcast_bidding_started(item_id) do
@@ -24,10 +25,14 @@ defmodule BiddingPoc.AuctionPublisher do
   end
 
   def broadcast_item_added(auction_item) do
-    Phoenix.PubSub.broadcast(BiddingPoc.AuctionItemPubSub, "auctions:lobby", {:item_added, auction_item})
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionItemPubSub,
+      "auctions:lobby",
+      {:item_added, auction_item}
+    )
   end
 
   def subscribe_auction_bidding(item_id) do
-    Phoenix.PubSub.subscribe(AuctionItemPubSub, "bidding:#{item_id}")
+    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, "bidding:#{item_id}")
   end
 end

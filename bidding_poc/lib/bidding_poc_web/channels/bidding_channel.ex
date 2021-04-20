@@ -30,7 +30,8 @@ defmodule BiddingPocWeb.BiddingChannel do
             |> put_user_joined(user_joined?(socket_with_item_id))
           }
         else
-          {:error, %{reason: "invalid item_id"}}
+          # %{reason: "invalid item_id"}
+          {:error, :invalid_item_id}
         end
     end
   end
@@ -40,12 +41,26 @@ defmodule BiddingPocWeb.BiddingChannel do
     item_id = get_item_id(socket)
     user_id = get_user_id(socket)
 
-    UserInAuction.add_user_to_auction(user_id, item_id)
+    UserInAuction.add_user_to_auction(item_id, user_id)
 
     new_socket =
       socket
-      |> update_presence_user_joined()
       |> put_user_joined(true)
+      |> update_presence_user_joined()
+
+    {:reply, :ok, new_socket}
+  end
+
+  def handle_in("leave_bidding", _payload, socket) do
+    item_id = get_item_id(socket)
+    user_id = get_user_id(socket)
+
+    UserInAuction.remove_user_from_auction(item_id, user_id)
+
+    new_socket =
+      socket
+      |> put_user_joined(false)
+      |> update_presence_user_joined()
 
     {:reply, :ok, new_socket}
   end
@@ -87,6 +102,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     socket
     |> get_item_id()
     |> AuctionPublisher.subscribe_auction_bidding()
+
     socket
   end
 
@@ -150,8 +166,10 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   defp update_presence_user_joined(socket) do
     Presence.update(socket, get_user_id(socket), fn meta ->
+      Logger.debug("Updating meta to: #{socket.assigns.user_joined}")
+
       meta
-      |> Map.put(:joined, socket.assigns.user_joined)
+      |> Map.put(:user_joined, socket.assigns.user_joined)
     end)
 
     socket

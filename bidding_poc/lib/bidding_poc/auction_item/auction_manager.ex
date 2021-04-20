@@ -3,6 +3,9 @@ defmodule BiddingPoc.AuctionManager do
 
   alias BiddingPoc.Database.{AuctionItem}
   alias BiddingPoc.DateHelpers
+  alias BiddingPoc.AuctionItemServer
+  alias BiddingPoc.AuctionItemSupervisor
+  alias BiddingPoc.AuctionPublisher
 
   def create_auction(params, user_id) do
     params
@@ -26,8 +29,20 @@ defmodule BiddingPoc.AuctionManager do
       category_id: params["category_id"],
       start_price: params["start_price"],
       bidding_start: DateHelpers.parse_iso_datetime!(params["bidding_start"]),
-      bidding_end: DateHelpers.parse_iso_datetime!(params["bidding_end"]),
+      bidding_end: DateHelpers.parse_iso_datetime!(params["bidding_end"])
     }
+  end
+
+  def remove_auction(socket, item_id, user_id) do
+    if AuctionItem.user_id_authorized?(item_id, user_id) do
+      :ok = AuctionItem.delete_item(item_id)
+
+      AuctionPublisher.broadcast_item_removed(socket, item_id)
+
+      :ok
+    else
+      {:error, :forbidden}
+    end
   end
 
   @spec place_bid(pos_integer(), pos_integer(), pos_integer()) ::

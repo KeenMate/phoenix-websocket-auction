@@ -42,8 +42,11 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec update_user(number(), binary(), binary(), boolean()) :: {:ok, t()} | {:error, :not_found}
-    def update_user(user_id, username, password, is_admin) when is_number(user_id) and is_binary(username) and is_binary(password) and is_boolean(is_admin) do
+    @spec update_user(number(), binary(), binary(), boolean()) ::
+            {:ok, t()} | {:error, :not_found}
+    def update_user(user_id, username, password, is_admin)
+        when is_number(user_id) and is_binary(username) and is_binary(password) and
+               is_boolean(is_admin) do
       Amnesia.transaction do
         user_id
         |> get_by_id()
@@ -70,6 +73,7 @@ defdatabase BiddingPoc.Database do
         |> case do
           [] ->
             {:error, :not_found}
+
           [%User{} = user] ->
             {:ok, user}
         end
@@ -157,7 +161,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    def get_users(search, page \\ 0, page_size \\ 10) when is_binary(search) and is_number(page) and is_number(page_size) do
+    def get_users(search, page \\ 0, page_size \\ 10)
+        when is_binary(search) and is_number(page) and is_number(page_size) do
       Amnesia.transaction do
         get_all_users()
         |> Stream.filter(fn user ->
@@ -174,7 +179,7 @@ defdatabase BiddingPoc.Database do
       Amnesia.transaction do
         foldl([], &[&1 | &2])
         |> Enum.map(&parse_tuple/1)
-        |> Enum.sort_by(&(&1.username))
+        |> Enum.sort_by(& &1.username)
       end
     end
 
@@ -392,11 +397,11 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec delete_category(number()) :: :ok, {:error, :not_found | :used}
+    @spec(delete_category(number()) :: :ok, {:error, :not_found | :used})
     def delete_category(category_id) do
       Amnesia.transaction do
         with {:category, category} when not is_nil(category) <- {:category, read(category_id)},
-          {:items, []} <- {:items, AuctionItem.get_category_items(category_id, 0, 1)} do
+             {:items, []} <- {:items, AuctionItem.get_category_items(category_id, 0, 1)} do
           delete(category_id)
 
           :ok
@@ -456,7 +461,7 @@ defdatabase BiddingPoc.Database do
         result =
           item
           |> Map.put(:user_id, user_id)
-          |> Map.put(:inserted_at, DateTime.now!(Common.timezone))
+          |> Map.put(:inserted_at, DateTime.now!(Common.timezone()))
           |> write()
 
         Logger.debug("Auction item: #{item.title} created by user: #{user_id}")
@@ -477,7 +482,8 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec get_last_items(number(), number()) :: [t()]
-    def get_last_items(search \\ nil, cateogry_id \\ nil, skip \\ 0, take \\ 10) when is_number(skip) and is_number(take) do
+    def get_last_items(search \\ nil, cateogry_id \\ nil, skip \\ 0, take \\ 10)
+        when is_number(skip) and is_number(take) do
       Amnesia.transaction do
         foldl([], &[&1 | &2])
         |> Enum.sort(fn l, r ->
@@ -492,7 +498,8 @@ defdatabase BiddingPoc.Database do
         end)
         |> Stream.map(&parse_auction_item_record/1)
         |> Stream.filter(fn item ->
-          (if search, do: item.title =~ search, else: true) && (if cateogry_id, do: item.category_id == cateogry_id, else: true)
+          if(search, do: item.title =~ search, else: true) &&
+            if cateogry_id, do: item.category_id == cateogry_id, else: true
         end)
         |> Stream.drop(skip)
         |> Stream.take(take)
@@ -514,12 +521,14 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec with_data(pos_integer()) :: {:ok, t()} | {:error, :item_not_found | :user_not_found | :category_not_found}
+    @spec with_data(pos_integer()) ::
+            {:ok, t()} | {:error, :item_not_found | :user_not_found | :category_not_found}
     def with_data(item_id) when is_number(item_id) do
       Amnesia.transaction do
         with {:item, {:ok, item}} <- {:item, get_by_id(item_id)},
-         {:user, {:ok, user}} <- {:user, User.get_by_id(item.user_id)},
-         {:category, {:ok, category}} <- {:category, AuctionItemCategory.get_by_id(item.category_id)} do
+             {:user, {:ok, user}} <- {:user, User.get_by_id(item.user_id)},
+             {:category, {:ok, category}} <-
+               {:category, AuctionItemCategory.get_by_id(item.category_id)} do
           item_with_additional_info =
             item
             |> Map.put(:username, user.username)
@@ -529,8 +538,10 @@ defdatabase BiddingPoc.Database do
         else
           {:item, {:error, :not_found}} ->
             {:error, :item_not_found}
+
           {:user, {:error, :not_found}} ->
             {:error, :user_not_found}
+
           {:category, {:error, :not_found}} ->
             {:error, :category_not_found}
         end
@@ -572,32 +583,28 @@ defdatabase BiddingPoc.Database do
     def place_bid(item_id, user_id, amount)
         when is_number(item_id) and is_number(user_id) and is_number(amount) do
       Amnesia.transaction do
-        try do
-          item = read(item_id)
+        item = read(item_id)
 
-          if item == nil do
-            {:error, :not_found}
-          else
-            case item_bidding_status(item) do
-              {:ok, :ongoing} ->
-                case try_add_bid(item.id, user_id, amount) do
-                  {:ok, _} = res ->
-                    Logger.debug("Bid placed for item: #{item_id} by user: #{user_id}")
-                    res
+        if item == nil do
+          {:error, :not_found}
+        else
+          case item_bidding_status(item) do
+            {:ok, :ongoing} ->
+              case try_add_bid(item.id, user_id, amount) do
+                {:ok, _} = res ->
+                  Logger.debug("Bid placed for item: #{item_id} by user: #{user_id}")
+                  res
 
-                  {:error, :small_bid} = error ->
-                    error
-                end
-              {:ok, :postponed} ->
-                {:error, :item_postponed}
-              {:ok, :ended} ->
-                {:error, :bidding_ended}
-            end
+                {:error, :small_bid} = error ->
+                  error
+              end
+
+            {:ok, :postponed} ->
+              {:error, :item_postponed}
+
+            {:ok, :ended} ->
+              {:error, :bidding_ended}
           end
-        rescue
-          e in ArgumentError ->
-            Logger.debug("Catched")
-            e
         end
       end
     end
@@ -626,6 +633,7 @@ defdatabase BiddingPoc.Database do
           |> case do
             {:ok, %User{is_admin: is_admin}} ->
               is_admin
+
             {:error, :not_found} ->
               false
           end
@@ -634,7 +642,8 @@ defdatabase BiddingPoc.Database do
     end
 
     defp parse_auction_item_record(
-           {AuctionItem, id, user_id, title, category_id, start_price, bidding_start, bidding_end, inserted_at}
+           {AuctionItem, id, user_id, title, category_id, start_price, bidding_start, bidding_end,
+            inserted_at}
          ) do
       %AuctionItem{
         id: id,
@@ -660,7 +669,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec item_bidding_status(t()) :: {:ok, :ended | :ongoing | :postponed} | {:error, binary(), t()}
+    @spec item_bidding_status(t()) ::
+            {:ok, :ended | :ongoing | :postponed} | {:error, binary(), t()}
     defp item_bidding_status(item) do
       now = DateTime.now!(Common.timezone())
       bidding_start_comparison = DateTime.compare(item.bidding_start, now)
@@ -725,7 +735,8 @@ defdatabase BiddingPoc.Database do
             updated_bid =
               bid
               |> Map.put(:username, user.username)
-              updated_bid
+
+            updated_bid
           else
             {:user, {:error, :not_found}} ->
               Logger.error("Could not find username for item bid", bid: bid)
@@ -736,7 +747,8 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec is_amount_highest?(pos_integer(), pos_integer()) :: boolean()
-    def is_amount_highest?(item_id_param, amount_param) when is_number(item_id_param) and is_number(amount_param) do
+    def is_amount_highest?(item_id_param, amount_param)
+        when is_number(item_id_param) and is_number(amount_param) do
       Amnesia.transaction do
         where(item_id == item_id_param and amount >= amount_param)
         |> Amnesia.Selection.values()
@@ -773,8 +785,7 @@ defdatabase BiddingPoc.Database do
     end
   end
 
-  deftable UserInAuction, [{:id, autoincrement}, :user_id, :auction_item_id],
-    index: [:user_id, :auction_item_id] do
+  deftable UserInAuction, [{:id, autoincrement}, :user_id, :item_id], index: [:user_id, :item_id] do
     @moduledoc """
     This table holds informations on users joined in auctions
     """
@@ -782,28 +793,45 @@ defdatabase BiddingPoc.Database do
     @type t() :: %UserInAuction{
             id: pos_integer() | nil,
             user_id: pos_integer(),
-            auction_item_id: pos_integer()
+            item_id: pos_integer()
           }
 
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
     @spec add_user_to_auction(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :exists}
-    def add_user_to_auction(user_id, auction_item_id)
-        when is_number(user_id) and is_number(auction_item_id) do
+    def add_user_to_auction(item_id, user_id)
+        when is_number(user_id) and is_number(item_id) do
       Amnesia.transaction do
-        match(user_id: user_id, auctino_item_id: auction_item_id)
+        match(user_id: user_id, item_id: item_id)
         |> Amnesia.Selection.values()
         |> case do
           [] ->
             result =
-              new_user_in_auction(user_id, auction_item_id)
+              new_user_in_auction(user_id, item_id)
               |> write()
 
             {:ok, result}
 
           x when is_list(x) ->
             {:error, :exists}
+        end
+      end
+    end
+
+    @spec remove_user_from_auction(pos_integer(), pos_integer()) :: :ok | {:error, :not_found}
+    def remove_user_from_auction(item_id, user_id)
+        when is_number(item_id) and is_number(user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
+        |> Amnesia.Selection.values()
+        |> case do
+          [] ->
+            {:error, :not_found}
+
+          [user_in_auction] ->
+            delete(user_in_auction.id)
+            :ok
         end
       end
     end
@@ -817,13 +845,16 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    def get_users_for_auction(auction_item_id) when is_number(auction_item_id) do
+    @spec get_users_for_auction(pos_integer()) :: [{:ok, User.t()} | {:error, :not_found}]
+    def get_users_for_auction(item_id) when is_number(item_id) do
       Amnesia.transaction do
-        match(auction_item_id: auction_item_id)
+        match(item_id: item_id)
         |> Amnesia.Selection.values()
+        |> Enum.map(&User.get_by_id(&1.user_id))
       end
     end
 
+    @spec get_auctions_for_user(pos_integer()) :: [t()]
     def get_auctions_for_user(user_id) when is_number(user_id) do
       Amnesia.transaction do
         match(user_id: user_id)
@@ -831,10 +862,10 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    defp new_user_in_auction(user_id, auction_item_id) do
+    defp new_user_in_auction(user_id, item_id) do
       %UserInAuction{
         user_id: user_id,
-        auction_item_id: auction_item_id
+        item_id: item_id
       }
     end
   end
