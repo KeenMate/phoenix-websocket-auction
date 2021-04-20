@@ -29,6 +29,8 @@ defmodule BiddingPoc.Application do
       # {BiddingPoc.Worker, arg}
     ]
 
+    initialize_amnesia()
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: BiddingPoc.Supervisor]
@@ -40,5 +42,18 @@ defmodule BiddingPoc.Application do
   def config_change(changed, _new, removed) do
     BiddingPocWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp initialize_amnesia() do
+    Amnesia.start()
+
+    # try do
+    BiddingPoc.Database.create!(disk: [node()])
+    :ok = BiddingPoc.Database.wait(15000)
+
+    BiddingPoc.DataPopulation.insert_users()
+    # after
+    # Amnesia.stop()
+    # end
   end
 end
