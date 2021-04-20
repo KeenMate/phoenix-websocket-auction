@@ -30,7 +30,7 @@ steps:
     commands:
     - cd /drone/src/bidding-poc-client
     - npm install
-    - npm run build
+    - npm run build:prod
   
   - name: elixir deps compile
     image: elixir:1.11-alpine
