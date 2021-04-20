@@ -4,8 +4,8 @@ defmodule BiddingPocWeb.BiddingChannel do
   require Logger
 
   alias BiddingPoc.Database.{AuctionItem, UserInAuction, ItemBid}
-  alias BiddingPoc.AuctionItem, as: AuctionItemCtx
-  alias BiddingPoc.AuctionItemPubSub
+  alias BiddingPoc.AuctionManager
+  alias BiddingPoc.AuctionPublisher
   alias BiddingPocWeb.Presence
 
   @impl true
@@ -44,7 +44,6 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     new_socket =
       socket
-      |> broadcast_user_joined()
       |> update_presence_user_joined()
       |> put_user_joined(true)
 
@@ -55,7 +54,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     item_id = get_item_id(socket)
     user_id = get_user_id(socket)
 
-    BiddingPoc.place_bid(item_id, user_id, amount)
+    AuctionManager.place_bid(item_id, user_id, amount)
     |> case do
       :ok ->
         {:reply, :ok, socket}
@@ -72,12 +71,6 @@ defmodule BiddingPocWeb.BiddingChannel do
     {:noreply, socket}
   end
 
-  # def handle_info({:bid_place, {:error, reason}}, socket) when is_atom(reason) do
-  #   push(socket, "place_bid_error", %{reason: Atom.to_string(reason)})
-
-  #   {:noreply, socket}
-  # end
-
   def handle_info(:after_join, socket) do
     setup_presence(socket)
 
@@ -91,7 +84,9 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   defp subscribe_to_auction_item_pubsub(socket) do
-    Phoenix.PubSub.subscribe(AuctionItemPubSub, "bidding:#{get_item_id(socket)}")
+    socket
+    |> get_item_id()
+    |> AuctionPublisher.subscribe_auction_bidding()
     socket
   end
 
@@ -149,37 +144,6 @@ defmodule BiddingPocWeb.BiddingChannel do
     Presence.list(socket)
   end
 
-  defp broadcast_user_joined(socket) do
-    broadcast_from(socket, "user_joined", Map.get(socket.assigns, :user))
-    socket
-  end
-
-  # defp broadcast_placed_bid(socket, bid) do
-  #   broadcast_from(socket, "bid_placed", bid)
-  # end
-
-  # defp response_from_place_bid_error(:not_found) do
-  #   error_reason_map("Item not found")
-  # end
-
-  defp response_from_place_bid_error(:small_bid) do
-    error_reason_map("Insufficient bid entered")
-  end
-
-  defp response_from_place_bid_error(:bidding_ended) do
-    error_reason_map("Bidding for this item has ended")
-  end
-
-  defp response_from_place_bid_error(:item_postponed) do
-    error_reason_map("Bidding for this item is postponed")
-  end
-
-  defp error_reason_map(reason) do
-    %{
-      reason: reason
-    }
-  end
-
   defp user_joined?(socket) do
     UserInAuction.user_in_auction?(get_item_id(socket), get_user_id(socket))
   end
@@ -213,10 +177,4 @@ defmodule BiddingPocWeb.BiddingChannel do
     |> Map.get(:user, %{})
     |> Map.get(:id)
   end
-
-  # defp get_current_user(socket) do
-  #   socket.assigns
-  #   |> Map.get(:user_id)
-  #   |> User.get_by_id()
-  # end
 end

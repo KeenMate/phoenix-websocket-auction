@@ -1,7 +1,7 @@
 defmodule BiddingPocWeb.UserChannel do
   use BiddingPocWeb, :channel
 
-  alias BiddingPoc.UserPubSub
+  alias BiddingPoc.UserPublisher
 
   def join("user:" <> user_id, _payload, socket) do
     current_user_id = get_user_id(socket)
@@ -32,7 +32,7 @@ defmodule BiddingPocWeb.UserChannel do
   end
 
   def handle_info(:after_join, socket) do
-    Phoenix.PubSub.subscribe(UserPubSub, "user:#{get_user_id(socket)}")
+    UserPublisher.subscribe_user_pubsub(get_user_id(socket))
 
     {:noreply, socket}
   end

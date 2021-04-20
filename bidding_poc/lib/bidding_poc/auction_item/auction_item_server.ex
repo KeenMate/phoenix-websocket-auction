@@ -8,7 +8,8 @@ defmodule BiddingPoc.AuctionItemServer do
 
   alias BiddingPoc.Common
   alias BiddingPoc.Database.{AuctionItem, ItemBid}
-  alias BiddingPoc.UserPubSub
+  alias BiddingPoc.AuctionPublisher
+  alias BiddingPoc.UserPublisher
 
   def start_link(arg) do
     GenServer.start_link(__MODULE__, arg, name: via_tuple(arg.item_id))
@@ -67,7 +68,7 @@ defmodule BiddingPoc.AuctionItemServer do
 
   @impl true
   def handle_info(:bidding_started, %{item_id: item_id} = state) do
-    Phoenix.PubSub.broadcast(AuctionItemPubSub, "auction_item:#{item_id}", :bidding_started)
+    AuctionPublisher.broadcast_bidding_started(item_id)
 
     {:noreply, state}
   end
@@ -112,11 +113,11 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp send_user_bid_placed(user_id, item_bid) do
-    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, item_bid})
+    UserPublisher.send_bid_placed_success(user_id, item_bid)
   end
 
   defp broadcast_bid_placed_error(user_id, error) do
-    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_place, error})
+    UserPublisher.send_place_bid_error(user_id, error)
   end
 
   defp update_average_bidding(state, item_bid) do
@@ -152,21 +153,13 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp broadcast_bid_average_changed(state) do
-    Phoenix.PubSub.broadcast(
-      BiddingPoc.AuctionItemPubSub,
-      "auctions:lobby",
-      {:average_bid, state.bids_average}
-    )
+    AuctionPublisher.broadcast_auction_average_bid_changed(state.bids_average)
 
     state
   end
 
   defp broadcast_bid_placed(state, item_bid) do
-    Phoenix.PubSub.broadcast(
-      BiddingPoc.AuctionItemPubSub,
-      "bidding:#{state.item_id}",
-      {:bid_placed, Map.from_struct(item_bid)}
-    )
+    AuctionPublisher.broadcast_bid_placed(item_bid)
 
     state
   end
@@ -174,6 +167,6 @@ defmodule BiddingPoc.AuctionItemServer do
   defp broadcast_item_added(_, false), do: :ok
 
   defp broadcast_item_added(item, _) do
-    Phoenix.PubSub.broadcast(BiddingPoc.AuctionItemPubSub, "auctions:lobby", {:item_added, item})
+    AuctionPublisher.broadcast_item_added(item)
   end
 end

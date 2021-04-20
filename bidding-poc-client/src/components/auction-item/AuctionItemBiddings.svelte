@@ -25,3 +25,27 @@
 		</tbody>
 	</table>
 </Card>
+
+<style lang="sass">
+	table.table
+		thead
+			tr
+				display: flex
+
+				th
+					flex: 1
+
+			tr
+				width: 100%
+
+		tbody
+			display: block
+			overflow-y: auto
+			max-height: calc(100vh - 14rem)
+
+			tr
+				display: flex
+
+				td
+					flex: 1
+</style>

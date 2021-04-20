@@ -572,26 +572,32 @@ defdatabase BiddingPoc.Database do
     def place_bid(item_id, user_id, amount)
         when is_number(item_id) and is_number(user_id) and is_number(amount) do
       Amnesia.transaction do
-        item = read(item_id)
+        try do
+          item = read(item_id)
 
-        if item == nil do
-          {:error, :not_found}
-        else
-          case item_bidding_status(item) do
-            {:ok, :ongoing} ->
-              case try_add_bid(item.id, user_id, amount) do
-                {:ok, _} = res ->
-                  Logger.debug("Bid placed for item: #{item_id} by user: #{user_id}")
-                  res
+          if item == nil do
+            {:error, :not_found}
+          else
+            case item_bidding_status(item) do
+              {:ok, :ongoing} ->
+                case try_add_bid(item.id, user_id, amount) do
+                  {:ok, _} = res ->
+                    Logger.debug("Bid placed for item: #{item_id} by user: #{user_id}")
+                    res
 
-                {:error, :small_bid} = error ->
-                  error
-              end
-            {:ok, :postponed} ->
-              {:error, :item_postponed}
-            {:ok, :ended} ->
-              {:error, :bidding_ended}
+                  {:error, :small_bid} = error ->
+                    error
+                end
+              {:ok, :postponed} ->
+                {:error, :item_postponed}
+              {:ok, :ended} ->
+                {:error, :bidding_ended}
+            end
           end
+        rescue
+          e in ArgumentError ->
+            Logger.debug("Catched")
+            e
         end
       end
     end
@@ -603,17 +609,6 @@ defdatabase BiddingPoc.Database do
 
         :ok
       end
-    end
-
-    @spec new_item_from_params!(map()) :: t()
-    def new_item_from_params!(params) do
-      %AuctionItem{
-        title: params["title"],
-        category_id: params["category_id"],
-        start_price: params["start_price"],
-        bidding_start: parse_iso_datetime!(params["bidding_start"]),
-        bidding_end: parse_iso_datetime!(params["bidding_end"]),
-      }
     end
 
     def user_id_authorized?(item_id, user_id) when is_number(item_id) and is_number(user_id) do
@@ -652,13 +647,6 @@ defdatabase BiddingPoc.Database do
         inserted_at: inserted_at
       }
     end
-
-    defp parse_iso_datetime!(datetime) when is_binary(datetime) do
-      {:ok, parsed, _} = DateTime.from_iso8601(datetime)
-      parsed
-    end
-
-    defp parse_iso_datetime!(nil), do: nil
 
     defp try_add_bid(item_id, user_id, amount) do
       if ItemBid.is_amount_highest?(item_id, amount) do

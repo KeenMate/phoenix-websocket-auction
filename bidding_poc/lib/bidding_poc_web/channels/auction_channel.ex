@@ -4,6 +4,7 @@ defmodule BiddingPocWeb.AuctionChannel do
   alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserWatchedCategory}
 
   alias BiddingPoc.AuctionItem, as: AuctionItemContext
+  alias BiddingPoc.AuctionManager
   alias BiddingPocWeb.Presence
 
   intercept ~w(
@@ -29,8 +30,7 @@ defmodule BiddingPocWeb.AuctionChannel do
     user_id = socket.assigns.user.id
 
     auction_item_params
-    |> AuctionItem.new_item_from_params!()
-    |> BiddingPoc.create_auction(user_id)
+    |> AuctionManager.create_auction(user_id)
     |> case do
       {:ok, auction_item} = res ->
         # broadcast_from(socket, "item_added", auction_item)

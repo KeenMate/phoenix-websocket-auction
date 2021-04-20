@@ -1,8 +1,9 @@
 defmodule BiddingPoc.AuctionItem do
   alias BiddingPoc.Database.{AuctionItem}
 
-  def create_auction_item(params, owner_id) when is_number(owner_id) do
-    AuctionItem.write_item(params, owner_id)
+  @spec create_auction_item(AuctionItem.t(), pos_integer()) :: {:ok, AuctionItem.t()} | {:error, :id_filled}
+  def create_auction_item(auction_item, owner_id) when is_number(owner_id) do
+    AuctionItem.write_item(auction_item, owner_id)
   end
 
   def get_auction_items(params) do
