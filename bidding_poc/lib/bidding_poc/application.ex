@@ -48,7 +48,7 @@ defmodule BiddingPoc.Application do
     Amnesia.start()
 
     # try do
-    BiddingPoc.Database.create!(disk: [node()])
+    BiddingPoc.Database.create!(memory: [node()])
     :ok = BiddingPoc.Database.wait(15000)
 
     BiddingPoc.DataPopulation.insert_users()
