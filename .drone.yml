@@ -35,7 +35,7 @@ steps:
   - name: elixir deps compile
     image: elixir:1.11-alpine
     depends_on:
-    - npm assets
+    - elixir deps get
     volumes:
     - name: mix-temp
       path: /root/.mix
