@@ -1,5 +1,6 @@
 import {Socket} from "phoenix"
 import {writable} from "svelte/store"
+import { SocketUrl } from "../../constants/urls"
 
 export const socket = writable(null)
 
@@ -7,7 +8,7 @@ export function createSocket(token) {
 	if (!token)
 		throw new Error("Cannot create socket because token is missing")
 
-	return new Socket("ws://localhost:4000/socket", {
+	return new Socket(SocketUrl, {
 		params: {
 			token
 		}
