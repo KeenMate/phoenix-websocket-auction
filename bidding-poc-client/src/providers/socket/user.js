@@ -74,10 +74,20 @@ export async function getUser(userId) {
 	return pushSocketMessage(channel, "get_user", {user_id: userId})
 }
 
-export async function updateUser(userId, username, password, isAdmin) {
+export async function updateUser(userId, username, displayName, password, isAdmin) {
 	const channel = await usersChannelAwaiter
 
-	return pushSocketMessage(channel, "update_user", {user_id: userId, username, password, is_admin: isAdmin})
+	return pushSocketMessage(
+		channel,
+		"update_user",
+		{
+			user_id: userId,
+			username,
+			display_name: displayName,
+			password,
+			is_admin: isAdmin
+		}
+	)
 }
 
 export async function deleteUser(userId) {

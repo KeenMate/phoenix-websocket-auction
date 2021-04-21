@@ -238,8 +238,8 @@ defdatabase BiddingPoc.Database do
       }
     end
 
-    defp parse_tuple({mod, id, username, password, is_admin}) do
-      struct!(mod, id: id, username: username, password: password, is_admin: is_admin)
+    defp parse_tuple({mod, id, username, display_name, password, is_admin}) do
+      struct!(mod, id: id, username: username, display_name: display_name, password: password, is_admin: is_admin)
     end
   end
 

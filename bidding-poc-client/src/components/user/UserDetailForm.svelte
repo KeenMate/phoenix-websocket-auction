@@ -7,6 +7,7 @@
 	const dispatch = createEventDispatcher()
 
 	export let username = ""
+	export let displayName = ""
 	export let newPassword = ""
 	export let isAdmin = false
 
@@ -30,7 +31,14 @@
 </script>
 
 <form class="user-detail-form" on:submit={onSubmit}>
-	<TextInput label="Username" value={username} on:input={({detail: d}) => dispatch("username", d)} />
+	<div class="columns">
+		<div class="column">
+			<TextInput label="Username" value={username} on:input={({detail: d}) => dispatch("username", d)} />
+		</div>
+		<div class="column">
+			<TextInput label="Display name" value={displayName} on:input={({detail: d}) => dispatch("displayName", d)} />
+		</div>
+	</div>
 
 	<div class="columns">
 		<div class="column">

@@ -48,14 +48,9 @@
         on:login={onLogin}
       />
       <p>
-        <b>Login names:</b><br />
-        Richmond, Nash <br />
-        Barron, Zephania <br />
-        Banks, Hyatt <br />
-        Murray, Christen <br />
-        Adams, Xerxes <br />
-        Oliver, Geoffrey <br />
-        <b>Password: 1234</b>
+        <b>Username</b> is from user001 to user100. <br>
+	      First 10 users are admins. <br>
+	      <b>Password</b> is same for all: <i>1234</i>
       </p>
     </div>
   </div>

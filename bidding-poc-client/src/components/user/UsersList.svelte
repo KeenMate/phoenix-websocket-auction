@@ -37,7 +37,7 @@
 			<tr>
 				<td>
 					<a href="#{getUserEditUrl(user.id)}">
-						{user.username}
+						{user.display_name}
 					</a>
 				</td>
 				<td>
