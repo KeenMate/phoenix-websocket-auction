@@ -7,12 +7,13 @@ defdatabase BiddingPoc.Database do
   deftable(AuctionItem)
   deftable(ItemBid)
 
-  deftable User, [{:id, autoincrement}, :username, :password, :is_admin],
+  deftable User, [{:id, autoincrement}, :username, :display_name, :password, :is_admin],
     type: :set,
     index: [:username] do
     @type t() :: %User{
             id: pos_integer() | nil,
             username: String.t(),
+            display_name: String.t(),
             password: String.t(),
             is_admin: boolean()
           }
@@ -21,8 +22,8 @@ defdatabase BiddingPoc.Database do
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__, except: [:password])
 
-    @spec create_user(binary(), binary()) :: {:ok, t()} | {:error, :exists}
-    def create_user(username, password) do
+    @spec create_user(binary(), binary(), binary()) :: {:ok, t()} | {:error, :exists}
+    def create_user(username, display_name, password, is_admin \\ false) do
       Amnesia.transaction do
         username
         |> get_by_username()
@@ -32,7 +33,7 @@ defdatabase BiddingPoc.Database do
 
           {:error, :not_found} ->
             result =
-              to_new_user(username, password)
+              to_user(username, display_name, password, is_admin)
               |> write()
 
             Logger.debug("User: #{username} was created")
@@ -42,9 +43,9 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec update_user(number(), binary(), binary(), boolean()) ::
+    @spec update_user(pos_integer(), binary(), binary(), binary(), boolean()) ::
             {:ok, t()} | {:error, :not_found}
-    def update_user(user_id, username, password, is_admin)
+    def update_user(user_id, username, display_name, password, is_admin)
         when is_number(user_id) and is_binary(username) and is_binary(password) and
                is_boolean(is_admin) do
       Amnesia.transaction do
@@ -57,7 +58,7 @@ defdatabase BiddingPoc.Database do
           {:ok, %User{} = current_user} ->
             updated_user =
               current_user
-              |> Map.merge(%{username: username, password: password, is_admin: is_admin})
+              |> Map.merge(%{username: username, display_name: display_name, password: password, is_admin: is_admin})
               |> write()
 
             {:ok, updated_user}
@@ -80,7 +81,7 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_by_id(number() | :system) :: {:ok, t()} | {:error, :not_found}
+    @spec get_by_id(pos_integer() | :system) :: {:ok, t()} | {:error, :not_found}
     @doc """
     Returns user with given ID without its password
     """
@@ -183,8 +184,15 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    def from_params(%{"username" => username, "password" => password}) do
-      to_new_user(username, password)
+    def from_params(params) do
+      %{
+        "username" => username,
+        "display_name" => display_name,
+        "password" => password,
+        "is_admin" => is_admin
+      } = params
+
+      to_user(Map.get(params, "id"), username, display_name, password, is_admin)
     end
 
     defp delete_user_biddings(user_id) do
@@ -220,11 +228,13 @@ defdatabase BiddingPoc.Database do
       user_id
     end
 
-    defp to_new_user(username, password) do
+    defp to_user(id \\ nil, username, display_name, password, is_admin) do
       %User{
+        id: id,
         username: username,
+        display_name: display_name,
         password: password,
-        is_admin: false
+        is_admin: is_admin
       }
     end
 

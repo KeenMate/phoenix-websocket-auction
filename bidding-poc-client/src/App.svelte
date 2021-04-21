@@ -1,15 +1,15 @@
 <script>
+	import {get} from "svelte/store"
 	import Router, {push} from "svelte-spa-router"
 	import {stringify} from "qs"
 	import toastr from "./helpers/toastr-helpers"
 	import routes, {Urls} from "./routes"
 	import {authTokenStore, userStore} from "./providers/auth"
 	import {auctionChannel, initAuctionChannel} from "./providers/socket/auction"
+	import {initUserChannel, initUsersChannel, usersChannel} from "./providers/socket/user"
 	import {getCurrentUser} from "./providers/user"
 	import {createSocket, socket} from "./providers/socket/common"
 	import Navigation from "./components/navigatioin/Navigation.svelte"
-	import {initUserChannel, initUsersChannel, usersChannel} from "./providers/socket/user"
-	import {get} from "svelte/store"
 
 	$: $authTokenStore && onAuthToken($authTokenStore)
 

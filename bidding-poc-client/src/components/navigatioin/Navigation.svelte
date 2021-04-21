@@ -56,7 +56,7 @@
 						{/if}
 					</div>
 				{:else}
-					<UserProfileNavButton username={user.username} />
+					<UserProfileNavButton displayName={user.display_name} />
 				{/if}
 			</div>
 		</div>

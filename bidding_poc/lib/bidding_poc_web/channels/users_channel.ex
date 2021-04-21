@@ -3,32 +3,28 @@ defmodule BiddingPocWeb.UsersChannel do
 
   require Logger
 
-  alias BiddingPoc.Database.{User}
+  alias BiddingPoc.User
 
   def join("users:lobby", _payload, socket) do
     {:ok, socket}
   end
 
-  def handle_in("get_users", payload, socket) do
+  def handle_in("get_users", params, socket) do
     if is_admin?(socket) do
-      search = Map.get(payload, "search", nil)
-      page = Map.get(payload, "page", 0)
-      page_size = Map.get(payload, "pageSize", 10)
-
-      {:reply, {:ok, User.get_users(search, page, page_size)}, socket}
+      {:reply, {:ok, User.get_users(params)}, socket}
     else
       {:reply, {:error, :forbidden}, socket}
     end
   end
 
   def handle_in("get_user", %{"user_id" => user_id}, socket) do
-    {:reply, User.get_by_id(user_id), socket}
+    {:reply, User.get_user(user_id), socket}
   end
 
-  def handle_in("update_user", %{"user_id" => user_id, "username" => username, "password" => password, "is_admin" => is_admin}, socket) do
+  def handle_in("update_user", %{"user_id" => user_id} = params, socket) do
     if is_admin?(socket) or user_id == get_user_id(socket) do
-      case User.update_user(user_id, username, password, is_admin) do
-        {:ok, %User{} = user} ->
+      case User.update_user(params) do
+        {:ok, user} ->
           {
             :reply,
             {:ok, user},
