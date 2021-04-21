@@ -189,7 +189,7 @@
 		<div class="column is-6">
 			{#if noBidding }
 				<Notification>
-					Bidding not available
+					This auction has already finished
 				</Notification>
 			{:else}
 				<AuctionItemBiddingForm
