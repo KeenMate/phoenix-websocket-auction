@@ -39,7 +39,7 @@ export default {
 		sourcemap: true,
 		format: "iife",
 		name: "app",
-		file: "../bidding_poc/priv/static/bundle.js"
+		file: "../bidding_poc/priv/static/js/bundle.js"
 	},
 	plugins: [
 		replace({

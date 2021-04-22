@@ -10,15 +10,20 @@ config :bidding_poc, BiddingPocWeb.Endpoint,
   http: [port: 4000],
   debug_errors: true,
   code_reloader: true,
-  check_origin: false,
-  watchers: [
-    node: [
-      "node_modules/rollup/dist/bin/rollup",
-      "--config",
-      "--watch",
-      cd: Path.expand("../../bidding-poc-client", __DIR__)
-    ]
-  ]
+  check_origin: false
+
+
+# Place this in /config/.local.exs to make hot-reload work from within erlang vm
+# config :bidding_poc, BiddingPocWeb.Endpoint,
+# watchers: [
+#   node: [
+#     "node_modules/rollup/dist/bin/rollup",
+#     "--config",
+#     "--watch",
+#     cd: Path.expand("../../bidding-poc-client", __DIR__)
+#   ]
+# ]
+
 
 # ## SSL Support
 #
