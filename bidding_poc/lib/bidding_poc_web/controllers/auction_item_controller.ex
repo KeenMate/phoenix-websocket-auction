@@ -28,7 +28,7 @@ defmodule BiddingPocWeb.AuctionItemController do
     |> AuctionItem.new_item_from_params!()
     |> Map.put(:user_id, user_id)
     |> Map.put(:inserted_at, DateTime.now!("Etc/UTC"))
-    |> AuctionItem.write_item()
+    |> AuctionItem.create_auction()
     |> case do
       {:ok, auction_item} ->
         conn
@@ -39,6 +39,11 @@ defmodule BiddingPocWeb.AuctionItemController do
         conn
         |> put_status(500)
         |> json(error_message_response("Known but unexpected situation occured"))
+
+      {:error, :title_used} ->
+        conn
+        |> put_status(500)
+        |> json(error_message_response("This title has been used"))
     end
   end
 

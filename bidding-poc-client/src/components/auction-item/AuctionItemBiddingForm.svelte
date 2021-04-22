@@ -12,7 +12,7 @@
 	function onPlaceBid() {
 		if (!currentBid)
 			return
-		
+
 		dispatch("placeBid", currentBid)
 		currentBid = 0
 	}
@@ -25,17 +25,17 @@
 		dispatch("leaveBidding")
 	}
 
-	// function onSubmit(ev) {
-	// 	ev.preventDefault()
-	//
-	// 	if (userJoined)
-	// 		currentBid && onPlaceBid()
-	// 	else
-	// 		onJoinBidding()
-	// }
+	function onSubmit(ev) {
+		ev.preventDefault()
+
+		if (userJoined)
+			currentBid && onPlaceBid()
+		else
+			onJoinBidding()
+	}
 </script>
 
-<div class="mb-3">
+<form class="mb-3" on:submit={onSubmit}>
 	<div class="columns">
 		<div class="column">
 			{#if userJoined}
@@ -63,4 +63,4 @@
 			{/if}
 		</div>
 	</div>
-</div>
+</form>

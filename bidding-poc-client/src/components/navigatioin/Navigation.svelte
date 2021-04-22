@@ -5,7 +5,7 @@
 	import UserProfileNavButton from "./UserProfileNavButton.svelte"
 	import HamburgerButton from "./HamburgerButton.svelte"
 	import BrandLogo from "./BrandLogo.svelte"
-	import NavigationFlashes from "./NavigationFlashes.svelte"
+	import NavigationNotifications from "./NavigationNotifications.svelte"
 
 	export let user = {}
 
@@ -40,7 +40,7 @@
 		</div>
 
 		<div class="navbar-end">
-			<NavigationFlashes />
+			<NavigationNotifications />
 			<div class="navbar-item">
 				{#if !user}
 					<div class="buttons">

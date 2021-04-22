@@ -17,7 +17,7 @@
 		<tbody>
 		{#each biddings as itemBid (itemBid.id)}
 			<tr>
-				<td>{itemBid.username}</td>
+				<td>{itemBid.user_display_name}</td>
 				<td>{itemBid.amount}</td>
 				<td>{m(itemBid.inserted_at).fromNow()}</td>
 			</tr>

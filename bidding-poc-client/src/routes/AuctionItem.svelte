@@ -1,5 +1,5 @@
 <script>
-	import {onDestroy} from "svelte"
+	import {onDestroy, onMount} from "svelte"
 	import {pop} from "svelte-spa-router"
 	import m from "moment"
 	import {socket} from "../providers/socket/common"
@@ -35,30 +35,56 @@
 		})
 		.catch(({channel, error}) => {
 			console.error("Could not initiate auction item channel", error)
+
+			if (error === "not_found") {
+				channel.leave()
+				toastr.error("This auction could not be found")
+				return
+			}
+
 			toastr.error("Could not open connection for this auction item")
-			
+
 			auctionItemChannel = channel
 		})
 
 	$: $minuteer && (biddings = biddings)
 
-	$: noBidding = m(auctionItem.bidding_start).isAfter() || m(auctionItem.bidding_end).isBefore()
+	$: biddingEnded = m(auctionItem.bidding_end).isBefore()
+	$: biddingNotStarted = m(auctionItem.bidding_start).isAfter()
 
-	eventBus.on("place_bid_error", onPlaceBidError)
-	eventBus.on("bid_placed_success", onPlaceBidSuccess)
-	eventBus.on("bid_placed", onBidPlaced)
-	eventBus.on("user_joined", onUserJoined)
-	eventBus.on("item_removed", onItemRemoved)
+	function reassignAuctionItem() {
+		auctionItem = auctionItem
+	}
+
+	function onBiddingStarted(item) {
+		console.log("Bidding started", item)
+		if (item.id !== paramAuctionItemId)
+			return
+
+		toastr.success(`Bidding has started for auction: ${item.title}`)
+		reassignAuctionItem()
+	}
+
+	function onBiddingEnded(item) {
+		if (item.id !== paramAuctionItemId)
+			return
+
+		toastr.warning(`Bidding has ended for auction: ${item.title}`)
+		reassignAuctionItem()
+	}
 
 	function onItemRemoved(msg) {
 		if (msg.item_id !== paramAuctionItemId)
 			return
-		
+
 		toastr.error("This auction item has been removed")
 	}
-	
-	function onBidPlaced(bid) {
+
+	function onBidPlaced({itemId, msg: bid}) {
 		console.log("bidPlaced: ", bid)
+
+		if (itemId !== paramAuctionItemId)
+			return
 		if (!auctionItem)
 			return
 
@@ -88,7 +114,7 @@
 				toastr.error("Could not join auction")
 			})
 	}
-	
+
 	function onLeaveBidding() {
 		if (!auctionItemChannel) {
 			console.warn("Could not leave bidding because there is no auction channel available")
@@ -161,16 +187,29 @@
 			})
 	}
 
+	function eventBusListeners(add = false) {
+		const fn = add && "on" || "detach"
+
+		eventBus[fn]("bid_placed", onBidPlaced)
+		eventBus[fn]("bid_placed_success", onPlaceBidSuccess)
+		eventBus[fn]("place_bid_error", onPlaceBidError)
+		eventBus[fn]("user_joined", onUserJoined)
+		eventBus[fn]("item_removed", onItemRemoved)
+		eventBus[fn]("bidding_started", onBiddingStarted)
+		eventBus[fn]("bidding_ended", onBiddingEnded)
+	}
+
+	onMount(() => {
+		eventBusListeners(true)
+	})
+
 	onDestroy(() => {
+		console.log("Destroying auction item")
 		if (auctionItemChannel) {
 			auctionItemChannel.leave()
 		}
 
-		eventBus.detach("bid_placed", onBidPlaced)
-		eventBus.detach("bid_placed_success", onPlaceBidSuccess)
-		eventBus.detach("place_bid_error", onPlaceBidError)
-		eventBus.detach("user_joined", onUserJoined)
-		eventBus.detach("item_removed", onItemRemoved)
+		eventBusListeners()
 	})
 </script>
 
@@ -187,11 +226,15 @@
 			{/if}
 		</div>
 		<div class="column is-6">
-			{#if noBidding }
+			{#if biddingEnded }
 				<Notification>
 					This auction has already ended
 				</Notification>
-			{:else}
+			{:else if biddingNotStarted}
+				<Notification>
+					This auction has not started yet
+				</Notification>
+			{:else if auctionItemChannel}
 				<AuctionItemBiddingForm
 					userJoined={auctionItem.user_joined}
 					on:joinBidding={onJoinBidding}
@@ -200,7 +243,7 @@
 				/>
 			{/if}
 
-			<AuctionItemBiddings {biddings}/>
+			<AuctionItemBiddings {biddings} />
 		</div>
 		<div class="column is-2">
 			<AuctionItemActiveUsers users={users && $users}/>

@@ -50,6 +50,22 @@
 			.then(ctx => {
 				push(getAuctionItemUrl(ctx.id))
 			})
+			.catch(error => {
+				if (error === "id_filled") {
+					console.error("Could not create auction because id was filled", error)
+					toastr.error("Could not create auction because of inner error")
+					return
+				}
+
+				if (error === "title_used") {
+					console.error("Could not create auction item because title has been used")
+					toastr.error("Could not create auction because this title is already being used")
+					return
+				}
+
+				console.error("Could not create auction item", error)
+				toastr.error("Could not create auction")
+			})
 			.finally(() => {
 				loading = false
 			})

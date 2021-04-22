@@ -32,11 +32,11 @@ export function initUsersChannel(socket) {
 export function initUserChannel(socket, userId) {
 	const userChannel = socket.channel(`user:${userId}`, {})
 
-	userChannel.on("place_bid_success", ctx => {
-		eventBus.emit("place_bid_success", null, ctx)
+	userChannel.on("place_bid_success", msg => {
+		eventBus.emit("place_bid_success", null, msg)
 	})
-	userChannel.on("place_bid_error", ctx => {
-		eventBus.emit("place_bid_error", null, ctx)
+	userChannel.on("place_bid_error", msg => {
+		eventBus.emit("place_bid_error", null, msg)
 	})
 
 	return joinChannel(userChannel)

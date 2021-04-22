@@ -70,34 +70,30 @@ function joinChannel(channel) {
 }
 
 function listenItemAdded(channel) {
-	channel.on("item_added", msg => {
-		// todo: Send message to common EventBus
-		console.log("Item added", msg)
-		eventBus.emit("item_added", null, msg)
+	channel.on("item_added", item => {
+		console.log("Item added", item)
+		eventBus.emit("item_added", null, item)
 	})
 }
 
 function listenItemRemoved(channel) {
-	channel.on("item_removed", msg => {
-		// todo: Send message to common EventBus
-		console.log("Item removed", msg)
-		eventBus.emit("item_removed", null, msg)
+	channel.on("item_removed", item => {
+		console.log("Item removed", item)
+		eventBus.emit("item_removed", null, item)
 	})
 }
 
 function listenAuctionStarted(channel) {
-	channel.on("auction_started", msg => {
-		// todo: Send message to common EventBus
-		console.log("Auction started: ", msg)
-		eventBus.emit("auction_started", null, msg)
+	channel.on("bidding_started", item => {
+		console.log("Auction started: ", item)
+		eventBus.emit("bidding_started", null, item)
 	})
 }
 
 function listenAuctionEnded(channel) {
-	channel.on("auction_ended", msg => {
-		// todo: Send message to common EventBus
-		console.log("Auction ended: ", msg)
-		eventBus.emit("auction_ended", null, msg)
+	channel.on("bidding_ended", item => {
+		console.log("Auction ended: ", item)
+		eventBus.emit("bidding_ended", null, item)
 	})
 }
 

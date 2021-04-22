@@ -1,19 +1,14 @@
 defmodule BiddingPocWeb.AuctionChannel do
   use BiddingPocWeb, :channel
 
+  require Logger
+
   alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserWatchedCategory}
 
   alias BiddingPoc.AuctionItem, as: AuctionItemContext
   alias BiddingPoc.AuctionManager
+  alias BiddingPoc.AuctionPublisher
   alias BiddingPocWeb.Presence
-
-  intercept ~w(
-    auction_started
-    auction_ended
-    )
-
-  # item_added
-  # item_removed
 
   @impl true
   def join("auction:lobby", _payload, socket) do
@@ -40,7 +35,7 @@ defmodule BiddingPocWeb.AuctionChannel do
 
         {:reply, res, socket_with_new_watched_items}
 
-      :error = error ->
+      {:error, _} = error ->
         {:reply, error, socket}
     end
   end
@@ -69,65 +64,70 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_in("delete_auction", %{"item_id" => item_id}, socket) do
-    socket
-    |> AuctionManager.remove_auction(item_id, get_user_id(socket))
+    item_id
+    |> AuctionManager.remove_auction(get_user_id(socket))
     |> case do
-      :ok ->
+      {:ok, _deleted_item} ->
         {:reply, :ok, socket}
 
-      {:error, :forbidden} = error ->
+      {:error, reason} = error when reason in [:forbidden, :not_found, :user_not_found] ->
         {:reply, error, socket}
     end
   end
 
   @impl true
-  def handle_out(
-        event,
-        %AuctionItem{} = item,
-        socket
-      )
-      when event in ~w(item_added item_removed) do
+  def handle_info({:item_added, %AuctionItem{} = item}, socket) do
     if user_interested_in_item?(socket, item) do
-      push(socket, event, item)
+      push(socket, "item_added", item)
     end
 
     {:noreply, socket}
   end
 
-  def handle_out(event, %{item_id: item_id} = payload, socket)
-      when event in ~w(auction_started auction_ended) do
-    new_socket =
-      if is_item_watched?(socket, item_id) do
-        push(socket, event, payload)
-
-        update_watched_by_event(socket, event, item_id)
-      else
-        socket
-      end
-
-    {:reply, payload, new_socket}
-  end
-
-  @impl true
-  def handle_info(:after_join, socket) do
-    {:ok, _} = Presence.track(socket, socket.assigns.user.id, %{})
+  def handle_info({:item_removed, %AuctionItem{} = item}, socket) do
+    Logger.debug("Item removed")
+    if user_interested_in_item?(socket, item) do
+      push(socket, "item_removed", item)
+    end
 
     {:noreply, socket}
   end
 
-  defp update_watched_by_event(socket, "auction_started", _), do: socket
+  def handle_info({:bidding_started, %AuctionItem{} = item}, socket) do
+    if is_item_watched?(socket, item.id) do
+      push(socket, "bidding_started", item)
+    end
 
-  defp update_watched_by_event(socket, "auction_ended", item_id) do
-    {:removed, new_socket} = toggle_watched_item(socket, item_id)
-    new_socket
+    {:noreply, socket}
+  end
+
+  def handle_info({:bidding_ended, %AuctionItem{} = item}, socket) do
+    if is_item_watched?(socket, item.id) do
+      push(socket, "bidding_ended", item)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:average_bid, _}, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_info(:after_join, socket) do
+    {:ok, _} = Presence.track(socket, socket.assigns.user.id, %{})
+
+    AuctionPublisher.subscribe_auctions_lobby()
+
+    {:noreply, socket}
   end
 
   defp user_interested_in_item?(socket, item) do
     user_id = get_user_id(socket)
 
-    item
-    |> Map.get(:category)
-    |> UserWatchedCategory.category_watched_by_user?(user_id)
+    is_item_watched?(socket, item.id) ||
+      item
+      |> Map.get(:category_id)
+      |> UserWatchedCategory.category_watched_by_user?(user_id)
   end
 
   defp is_item_watched?(socket, item_id) do

@@ -20,7 +20,7 @@ defmodule BiddingPocWeb.UserChannel do
   end
 
   def handle_info({:bid_placed, item_bid}, socket) do
-    push(socket, "place_bid_success", item_bid)
+    push(socket, "place_bid_success", Map.from_struct(item_bid))
 
     {:noreply, socket}
   end

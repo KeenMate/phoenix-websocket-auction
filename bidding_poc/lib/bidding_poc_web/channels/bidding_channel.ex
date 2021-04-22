@@ -14,7 +14,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     |> Integer.parse()
     |> case do
       :error ->
-        {:error, %{reason: "invalid item_id"}}
+        {:error, :invalid_item_id}
 
       {parsed_item_id, _} ->
         parsed_item_id
@@ -31,7 +31,7 @@ defmodule BiddingPocWeb.BiddingChannel do
           }
         else
           # %{reason: "invalid item_id"}
-          {:error, :invalid_item_id}
+          {:error, :not_found}
         end
     end
   end
@@ -81,7 +81,7 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   @impl true
   def handle_info({:bid_placed, item_bid}, socket) do
-    push(socket, "bid_placed", item_bid)
+    push(socket, "bid_placed", Map.from_struct(item_bid))
 
     {:noreply, socket}
   end
@@ -101,7 +101,7 @@ defmodule BiddingPocWeb.BiddingChannel do
   defp subscribe_to_auction_item_pubsub(socket) do
     socket
     |> get_item_id()
-    |> AuctionPublisher.subscribe_auction_bidding()
+    |> AuctionPublisher.subscribe_auction_item()
 
     socket
   end
@@ -114,6 +114,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     Presence.track(socket, user_id, %{
       id: user_id,
       username: socket.assigns.user.username,
+      display_name: socket.assigns.user.display_name,
       user_joined: socket.assigns.user_joined
     })
   end
