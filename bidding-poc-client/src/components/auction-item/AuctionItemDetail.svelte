@@ -3,7 +3,6 @@
 	import m from "moment"
 	import Card from "../ui/Card.svelte"
 	import TheButton from "../ui/TheButton.svelte"
-	import {minuteer} from "../../stores/other"
 
 	const dispatch = createEventDispatcher()
 	export let title = ""
@@ -13,8 +12,6 @@
 	export let inserted_at = null
 	export let bidding_start = null
 	export let bidding_end = null
-
-	$: $minuteer && reassignComputableProps()
 
 	function reassignComputableProps() {
 		inserted_at = inserted_at

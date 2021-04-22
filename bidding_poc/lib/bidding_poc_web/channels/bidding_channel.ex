@@ -27,7 +27,7 @@ defmodule BiddingPocWeb.BiddingChannel do
           {
             :ok,
             socket_with_item_id
-            |> put_user_joined(user_joined?(socket_with_item_id))
+            |> put_user_status(get_user_status(socket_with_item_id))
           }
         else
           # %{reason: "invalid item_id"}
@@ -45,8 +45,8 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     new_socket =
       socket
-      |> put_user_joined(true)
-      |> update_presence_user_joined()
+      |> put_user_status(true)
+      |> update_presence_user_status()
 
     {:reply, :ok, new_socket}
   end
@@ -59,8 +59,8 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     new_socket =
       socket
-      |> put_user_joined(false)
-      |> update_presence_user_joined()
+      |> put_user_status(false)
+      |> update_presence_user_status()
 
     {:reply, :ok, new_socket}
   end
@@ -115,7 +115,7 @@ defmodule BiddingPocWeb.BiddingChannel do
       id: user_id,
       username: socket.assigns.user.username,
       display_name: socket.assigns.user.display_name,
-      user_joined: socket.assigns.user_joined
+      user_status: socket.assigns.user_status
     })
   end
 
@@ -127,7 +127,7 @@ defmodule BiddingPocWeb.BiddingChannel do
       {:ok, %AuctionItem{} = item_with_data} ->
         updated_item_with_data =
           item_with_data
-          |> Map.put(:user_joined, user_joined?(socket))
+          |> Map.put(:user_status, get_user_status(socket))
 
         push(socket, "auction_item", Map.from_struct(updated_item_with_data))
 
@@ -161,23 +161,34 @@ defmodule BiddingPocWeb.BiddingChannel do
     Presence.list(socket)
   end
 
-  defp user_joined?(socket) do
-    UserInAuction.user_in_auction?(get_item_id(socket), get_user_id(socket))
+  defp get_user_status(socket) do
+    UserInAuction.get_user_status(get_item_id(socket), get_user_id(socket))
+    |> case do
+      {:ok, relation} ->
+        if relation.joined do
+          :joined
+        else
+          :watching
+        end
+
+      {:error, :not_found} ->
+        :nothing
+    end
   end
 
-  defp update_presence_user_joined(socket) do
+  defp update_presence_user_status(socket) do
     Presence.update(socket, get_user_id(socket), fn meta ->
-      Logger.debug("Updating meta to: #{socket.assigns.user_joined}")
+      Logger.debug("Updating meta to: #{socket.assigns.user_status}")
 
       meta
-      |> Map.put(:user_joined, socket.assigns.user_joined)
+      |> Map.put(:user_status, socket.assigns.user_status)
     end)
 
     socket
   end
 
-  defp put_user_joined(socket, value) when is_boolean(value) do
-    assign(socket, :user_joined, value)
+  defp put_user_status(socket, value) when is_boolean(value) do
+    assign(socket, :user_status, value)
   end
 
   defp put_item_id(socket, item_id) do

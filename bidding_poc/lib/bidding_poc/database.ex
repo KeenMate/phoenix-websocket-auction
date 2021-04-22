@@ -58,7 +58,12 @@ defdatabase BiddingPoc.Database do
           {:ok, %User{} = current_user} ->
             updated_user =
               current_user
-              |> Map.merge(%{username: username, display_name: display_name, password: password, is_admin: is_admin})
+              |> Map.merge(%{
+                username: username,
+                display_name: display_name,
+                password: password,
+                is_admin: is_admin
+              })
               |> write()
 
             {:ok, updated_user}
@@ -251,7 +256,13 @@ defdatabase BiddingPoc.Database do
     end
 
     defp parse_tuple({mod, id, username, display_name, password, is_admin}) do
-      struct!(mod, id: id, username: username, display_name: display_name, password: password, is_admin: is_admin)
+      struct!(mod,
+        id: id,
+        username: username,
+        display_name: display_name,
+        password: password,
+        is_admin: is_admin
+      )
     end
   end
 
@@ -478,7 +489,8 @@ defdatabase BiddingPoc.Database do
     @doc """
     Writes auction item in transaction
     """
-    def create_auction(%AuctionItem{id: nil, title: title} = item, user_id) when is_number(user_id) do
+    def create_auction(%AuctionItem{id: nil, title: title} = item, user_id)
+        when is_number(user_id) do
       Amnesia.transaction do
         match(title: title)
         |> Amnesia.Selection.values()
@@ -493,6 +505,7 @@ defdatabase BiddingPoc.Database do
             Logger.debug("Auction item: #{item.title} created by user: #{user_id}")
 
             {:ok, result}
+
           _ ->
             {:error, :title_used}
         end
@@ -642,6 +655,7 @@ defdatabase BiddingPoc.Database do
     def delete_item(item_id) when is_number(item_id) do
       Amnesia.transaction do
         existing = read(item_id)
+
         if existing == nil do
           {:error, :not_found}
         else
@@ -651,16 +665,18 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec user_id_authorized?(pos_integer(), pos_integer()) :: boolean() | {:error, :not_found | :user_not_found}
+    @spec user_id_authorized?(pos_integer(), pos_integer()) ::
+            boolean() | {:error, :not_found | :user_not_found}
     def user_id_authorized?(item_id, user_id) when is_number(item_id) and is_number(user_id) do
       Amnesia.transaction do
-        user_owner? = item_id
-        |> get_by_id()
-        |> case do
-          {:ok, %{user_id: ^user_id}} -> {:ok, true}
-          {:ok, _} -> {:ok, false}
-          {:error, :not_found} = error -> error
-        end
+        user_owner? =
+          item_id
+          |> get_by_id()
+          |> case do
+            {:ok, %{user_id: ^user_id}} -> {:ok, true}
+            {:ok, _} -> {:ok, false}
+            {:error, :not_found} = error -> error
+          end
 
         case user_owner? do
           {:ok, true} ->
@@ -827,7 +843,64 @@ defdatabase BiddingPoc.Database do
     end
   end
 
-  deftable UserInAuction, [{:id, autoincrement}, :user_id, :item_id], index: [:user_id, :item_id] do
+  # deftable WatchedAuction, [{:id, autoincrement}, :user_id, :item_id], index: [:user_id, :item_id] do
+  #   @moduledoc """
+  #   This table holds informations on users watching auctions
+  #   """
+
+  #   @type t() :: %WatchedAuction{
+  #           id: pos_integer() | nil,
+  #           user_id: pos_integer(),
+  #           item_id: pos_integer()
+  #         }
+
+  #   @spec watch_item(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :exists}
+  #   def watch_item(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+  #     Amnesia.transaction do
+  #       match(item_id: item_id, user_id: user_id)
+  #       |> Amnesia.Selection.values()
+  #       |> case do
+  #         [] ->
+  #           new_watch =
+  #             %WatchedAuction{item_id: item_id, user_id: user_id}
+  #             |> write()
+
+  #           {:ok, new_watch}
+
+  #         _ ->
+  #           {:error, :exists}
+  #       end
+  #     end
+  #   end
+
+  #   @spec unwatch_item(pos_integer(), pos_integer()) :: :ok | {:error, :not_found}
+  #   def unwatch_item(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+  #     Amnesia.transaction do
+  #       match(item_id: item_id, user_id: user_id)
+  #       |> Amnesia.Selection.values()
+  #       |> case do
+  #         [] ->
+  #           {:error, :not_found}
+
+  #         [found] ->
+  #           delete(found.id)
+
+  #           :ok
+  #       end
+  #     end
+  #   end
+
+  #   @spec get_watched_auctions(pos_integer()) :: [t()]
+  #   def get_watched_auctions(user_id) when is_number(user_id) do
+  #     Amnesia.transaction do
+  #       match(user_id: user_id)
+  #       |> Amnesia.Selection.values()
+  #     end
+  #   end
+  # end
+
+  deftable UserInAuction, [{:id, autoincrement}, :user_id, :item_id, :joined],
+    index: [:user_id, :item_id] do
     @moduledoc """
     This table holds informations on users joined in auctions
     """
@@ -835,14 +908,15 @@ defdatabase BiddingPoc.Database do
     @type t() :: %UserInAuction{
             id: pos_integer() | nil,
             user_id: pos_integer(),
-            item_id: pos_integer()
+            item_id: pos_integer(),
+            joined: boolean()
           }
 
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
     @spec add_user_to_auction(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :exists}
-    def add_user_to_auction(item_id, user_id)
+    def add_user_to_auction(item_id, user_id, join \\ true)
         when is_number(user_id) and is_number(item_id) do
       Amnesia.transaction do
         match(user_id: user_id, item_id: item_id)
@@ -850,7 +924,7 @@ defdatabase BiddingPoc.Database do
         |> case do
           [] ->
             result =
-              new_user_in_auction(user_id, item_id)
+              new_user_in_auction(user_id, item_id, join)
               |> write()
 
             {:ok, result}
@@ -861,7 +935,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec remove_user_from_auction(pos_integer(), pos_integer()) :: :ok | {:error, :not_found}
+    @spec remove_user_from_auction(pos_integer(), pos_integer()) ::
+            {:ok, :removed | :bidding_left} | {:error, :not_found}
     def remove_user_from_auction(item_id, user_id)
         when is_number(item_id) and is_number(user_id) do
       Amnesia.transaction do
@@ -871,9 +946,16 @@ defdatabase BiddingPoc.Database do
           [] ->
             {:error, :not_found}
 
-          [user_in_auction] ->
-            delete(user_in_auction.id)
-            :ok
+          [%{id: id, joined: false}] ->
+            delete(id)
+            {:ok, :removed}
+
+          [%{joined: true} = x] ->
+            x
+            |> Map.put(:joined, false)
+            |> update()
+
+            {:ok, :bidding_left}
         end
       end
     end
@@ -887,8 +969,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_users_for_auction(pos_integer()) :: [{:ok, User.t()} | {:error, :not_found}]
-    def get_users_for_auction(item_id) when is_number(item_id) do
+    @spec get_auction_users(pos_integer()) :: [{:ok, User.t()} | {:error, :not_found}]
+    def get_auction_users(item_id) when is_number(item_id) do
       Amnesia.transaction do
         match(item_id: item_id)
         |> Amnesia.Selection.values()
@@ -896,18 +978,34 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_auctions_for_user(pos_integer()) :: [t()]
-    def get_auctions_for_user(user_id) when is_number(user_id) do
+    @spec get_user_auctions(pos_integer()) :: [t()]
+    def get_user_auctions(user_id) when is_number(user_id) do
       Amnesia.transaction do
         match(user_id: user_id)
         |> Amnesia.Selection.values()
       end
     end
 
-    defp new_user_in_auction(user_id, item_id) do
+    @spec get_user_status(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :not_found}
+    def get_user_status(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
+        |> Amnesia.Selection.values()
+        |> case do
+          [] ->
+            {:error, :not_found}
+
+          [found] ->
+            {:ok, found}
+        end
+      end
+    end
+
+    defp new_user_in_auction(user_id, item_id, join) do
       %UserInAuction{
         user_id: user_id,
-        item_id: item_id
+        item_id: item_id,
+        joined: join
       }
     end
   end

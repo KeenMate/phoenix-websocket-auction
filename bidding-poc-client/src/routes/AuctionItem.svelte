@@ -47,7 +47,7 @@
 			auctionItemChannel = channel
 		})
 
-	$: $minuteer && (biddings = biddings)
+	$: $minuteer && (biddings = biddings) && (auctionItem = auctionItem)
 
 	$: biddingEnded = m(auctionItem.bidding_end).isBefore()
 	$: biddingNotStarted = m(auctionItem.bidding_start).isAfter()

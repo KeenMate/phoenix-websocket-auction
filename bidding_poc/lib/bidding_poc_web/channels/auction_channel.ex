@@ -85,7 +85,6 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_info({:item_removed, %AuctionItem{} = item}, socket) do
-    Logger.debug("Item removed")
     if user_interested_in_item?(socket, item) do
       push(socket, "item_removed", item)
     end
@@ -94,7 +93,7 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_info({:bidding_started, %AuctionItem{} = item}, socket) do
-    if is_item_watched?(socket, item.id) do
+    unless get_socket_watched_items() do
       push(socket, "bidding_started", item)
     end
 
@@ -121,41 +120,18 @@ defmodule BiddingPocWeb.AuctionChannel do
     {:noreply, socket}
   end
 
+  @impl true
+  def terminate(reason, _socket) do
+    Logger.debug("Terminating, #{inspect(reason)}")
+    :ok
+  end
+
   defp user_interested_in_item?(socket, item) do
     user_id = get_user_id(socket)
 
-    is_item_watched?(socket, item.id) ||
-      item
-      |> Map.get(:category_id)
-      |> UserWatchedCategory.category_watched_by_user?(user_id)
-  end
-
-  defp is_item_watched?(socket, item_id) do
-    socket
-    |> get_socket_watched_items()
-    |> Enum.member?(item_id)
-  end
-
-  defp toggle_watched_item(socket, item_id) do
-    watched = get_socket_watched_items(socket)
-
-    if Enum.member?(watched, item_id) do
-      filtered = Enum.filter(watched, &(&1 != item_id))
-
-      {:removed, assign_watched_items(socket, filtered)}
-    else
-      {:added, assign_watched_items(socket, [item_id | watched])}
-    end
-  end
-
-  defp get_socket_watched_items(socket) do
-    socket
-    |> Map.get(:assigns, %{})
-    |> Map.get(:watched_item_ids, [])
-  end
-
-  defp assign_watched_items(socket, watched) do
-    assign(socket, :watched_item_ids, watched)
+    item
+    |> Map.get(:category_id)
+    |> UserWatchedCategory.category_watched_by_user?(user_id)
   end
 
   defp get_user_id(%{assigns: %{user: %{id: user_id}}}), do: user_id
