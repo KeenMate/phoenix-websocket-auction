@@ -3,10 +3,10 @@ defmodule BiddingPocWeb.AuctionChannel do
 
   require Logger
 
-  alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserWatchedCategory}
+  alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserWatchedCategory, UserInAuction}
 
   alias BiddingPoc.AuctionItem, as: AuctionItemContext
-  alias BiddingPoc.AuctionManager
+  alias BiddingPoc.{AuctionManager, UserManager}
   alias BiddingPoc.AuctionPublisher
   alias BiddingPocWeb.Presence
 
@@ -17,7 +17,6 @@ defmodule BiddingPocWeb.AuctionChannel do
     {
       :ok,
       socket
-      |> assign_watched_items([])
     }
   end
 
@@ -31,9 +30,10 @@ defmodule BiddingPocWeb.AuctionChannel do
       {:ok, auction_item} = res ->
         # broadcast_from(socket, "item_added", auction_item)
 
-        {:added, socket_with_new_watched_items} = toggle_watched_item(socket, auction_item.id)
+        # {:added, socket_with_new_watched_items} = toggle_watched_item(socket, auction_item.id)
+        UserInAuction.add_user_to_auction(auction_item.id, user_id, false)
 
-        {:reply, res, socket_with_new_watched_items}
+        {:reply, res, socket}
 
       {:error, _} = error ->
         {:reply, error, socket}
@@ -51,15 +51,24 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_in("toggle_watch_item", %{"item_id" => item_id}, socket) do
-    {operation, new_watched_ids} =
-      socket
-      |> get_socket_watched_items()
-      |> toggle_watched_item(item_id)
+    user_id = get_user_id(socket)
+
+    operation =
+      item_id
+      |> UserInAuction.toggle_watched_auction(user_id)
+      |> case do
+        {:error, :not_found} ->
+          UserInAuction.add_user_to_auction(item_id, user_id, false)
+          :watched
+
+        {:ok, operation} when operation in [:watched, :unwatched] ->
+          operation
+      end
 
     {
       :reply,
       operation,
-      assign_watched_items(socket, new_watched_ids)
+      socket
     }
   end
 
@@ -76,39 +85,40 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   @impl true
-  def handle_info({:item_added, %AuctionItem{} = item}, socket) do
-    if user_interested_in_item?(socket, item) do
-      push(socket, "item_added", item)
+  def handle_info({:item_added, %AuctionItem{} = auction_item}, socket) do
+    if user_interested_in_auction_item?(socket, auction_item) do
+      push(socket, "item_added", auction_item)
     end
 
     {:noreply, socket}
   end
 
-  def handle_info({:item_removed, %AuctionItem{} = item}, socket) do
-    if user_interested_in_item?(socket, item) do
-      push(socket, "item_removed", item)
+  def handle_info({:item_removed, %AuctionItem{} = auction_item}, socket) do
+    if user_interested_in_auction_item?(socket, auction_item) do
+      push(socket, "item_removed", auction_item)
     end
 
     {:noreply, socket}
   end
 
-  def handle_info({:bidding_started, %AuctionItem{} = item}, socket) do
-    unless get_socket_watched_items() do
-      push(socket, "bidding_started", item)
+  def handle_info({:bidding_started, %AuctionItem{} = auction_item}, socket) do
+    unless user_interested_in_auction_item?(socket, auction_item) do
+      push(socket, "bidding_started", auction_item)
     end
 
     {:noreply, socket}
   end
 
-  def handle_info({:bidding_ended, %AuctionItem{} = item}, socket) do
-    if is_item_watched?(socket, item.id) do
-      push(socket, "bidding_ended", item)
+  def handle_info({:bidding_ended, %AuctionItem{} = auction_item}, socket) do
+    if user_interested_in_auction_item?(socket, auction_item) do
+      push(socket, "bidding_ended", auction_item)
     end
 
     {:noreply, socket}
   end
 
   def handle_info({:average_bid, _}, socket) do
+    # TODO: send average bid
     {:noreply, socket}
   end
 
@@ -126,10 +136,16 @@ defmodule BiddingPocWeb.AuctionChannel do
     :ok
   end
 
-  defp user_interested_in_item?(socket, item) do
+  defp user_interested_in_auction_item?(socket, auction_item) do
     user_id = get_user_id(socket)
 
-    item
+    UserManager.is_auction_currently_viewed?(user_id, auction_item.id)
+    || category_watched_by_user?(user_id, auction_item)
+    || UserInAuction.user_in_auction?(auction_item.id, user_id)
+  end
+
+  defp category_watched_by_user?(user_id, auction_item) do
+    auction_item
     |> Map.get(:category_id)
     |> UserWatchedCategory.category_watched_by_user?(user_id)
   end

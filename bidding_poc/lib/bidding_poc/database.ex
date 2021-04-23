@@ -953,9 +953,33 @@ defdatabase BiddingPoc.Database do
           [%{joined: true} = x] ->
             x
             |> Map.put(:joined, false)
-            |> update()
+            |> write()
 
             {:ok, :bidding_left}
+        end
+      end
+    end
+
+    @spec toggle_watched_auction(pos_integer(), pos_integer()) :: {:ok, :watched | :unwatched} | {:error, :not_found}
+    def toggle_watched_auction(item_id, user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
+        |> Amnesia.Selection.values()
+        |> case do
+          [] ->
+            {:error, :not_found}
+
+          [%{joined: false} = found] ->
+            found
+            |> Map.put(:joined, true)
+            |> write()
+            {:ok, :watched}
+
+          [%{joined: true} = found] ->
+            found
+            |> Map.put(:joined, false)
+            |> write()
+            {:ok, :unwatched}
         end
       end
     end
@@ -986,7 +1010,7 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_user_status(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :not_found}
+    @spec get_user_status(pos_integer(), pos_integer()) :: {:ok, :watching | :joined} | {:error, :not_found}
     def get_user_status(item_id, user_id) when is_number(item_id) and is_number(user_id) do
       Amnesia.transaction do
         match(item_id: item_id, user_id: user_id)
@@ -995,8 +1019,11 @@ defdatabase BiddingPoc.Database do
           [] ->
             {:error, :not_found}
 
-          [found] ->
-            {:ok, found}
+          [%{joined: false}] ->
+            {:ok, :watching}
+
+          [%{joined: true}] ->
+            {:ok, :joined}
         end
       end
     end

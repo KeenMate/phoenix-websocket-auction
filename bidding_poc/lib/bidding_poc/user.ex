@@ -10,7 +10,7 @@ defmodule BiddingPoc.User do
     User.get_users(search, page, page_size)
   end
 
-  @spec get_user(:system | pos_integer()) :: {:error, :not_found} | {:ok, User.t()}
+  @spec get_user(pos_integer() | atom()) :: {:error, :not_found} | {:ok, User.t()}
   def get_user(user_id) do
     User.get_by_id(user_id)
   end

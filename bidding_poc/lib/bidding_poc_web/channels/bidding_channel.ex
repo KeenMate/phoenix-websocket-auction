@@ -6,6 +6,7 @@ defmodule BiddingPocWeb.BiddingChannel do
   alias BiddingPoc.Database.{AuctionItem, UserInAuction, ItemBid}
   alias BiddingPoc.AuctionManager
   alias BiddingPoc.AuctionPublisher
+  alias BiddingPoc.UserStoreAgent
   alias BiddingPocWeb.Presence
 
   @impl true
@@ -45,7 +46,7 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     new_socket =
       socket
-      |> put_user_status(true)
+      |> put_user_status(:joined)
       |> update_presence_user_status()
 
     {:reply, :ok, new_socket}
@@ -59,7 +60,7 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     new_socket =
       socket
-      |> put_user_status(false)
+      |> put_user_status(:nothing)
       |> update_presence_user_status()
 
     {:reply, :ok, new_socket}
@@ -94,6 +95,8 @@ defmodule BiddingPocWeb.BiddingChannel do
     |> push_auction_item()
     |> push_auction_item_biddings()
     |> subscribe_to_auction_item_pubsub()
+
+    UserStoreAgent.set_current_auction(get_user_id(socket), get_item_id(socket))
 
     {:noreply, socket}
   end
@@ -164,12 +167,8 @@ defmodule BiddingPocWeb.BiddingChannel do
   defp get_user_status(socket) do
     UserInAuction.get_user_status(get_item_id(socket), get_user_id(socket))
     |> case do
-      {:ok, relation} ->
-        if relation.joined do
-          :joined
-        else
-          :watching
-        end
+      {:ok, status} ->
+        status
 
       {:error, :not_found} ->
         :nothing
@@ -177,17 +176,12 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   defp update_presence_user_status(socket) do
-    Presence.update(socket, get_user_id(socket), fn meta ->
-      Logger.debug("Updating meta to: #{socket.assigns.user_status}")
-
-      meta
-      |> Map.put(:user_status, socket.assigns.user_status)
-    end)
+    Presence.update(socket, get_user_id(socket), &Map.put(&1, :user_status, socket.assigns.user_status))
 
     socket
   end
 
-  defp put_user_status(socket, value) when is_boolean(value) do
+  defp put_user_status(socket, value) when value in [:watching, :joined, :nothing] do
     assign(socket, :user_status, value)
   end
 
