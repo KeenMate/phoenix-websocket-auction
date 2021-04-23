@@ -3,7 +3,7 @@
 	import {pop} from "svelte-spa-router"
 	import m from "moment"
 	import {socket} from "../providers/socket/common"
-	import {deleteAuction} from "../providers/socket/auction"
+	import {deleteAuction, toggleWatch} from "../providers/socket/auction"
 	import {initBiddingChannel, joinBidding, leaveBidding, placeBid} from "../providers/socket/bidding"
 	import toastr from "../helpers/toastr-helpers"
 	import eventBus from "../helpers/event-bus"
@@ -22,13 +22,14 @@
 	let users = null
 	let biddings = []
 
+	const channelListeners = {
+		onAuctionItem: item => auctionItem = item,
+		onBiddings: payload => biddings = payload.biddings
+	}
+	
 	$: paramAuctionItemId = Number(params.id)
 
-	$: $socket && initBiddingChannel($socket, paramAuctionItemId,
-		{
-			onAuctionItem: item => auctionItem = item,
-			onBiddings: payload => biddings = payload.biddings
-		})
+	$: $socket && initBiddingChannel($socket, paramAuctionItemId, channelListeners)
 		.then(({channel, users: usersStore}) => {
 			users = usersStore
 			auctionItemChannel = channel
@@ -48,6 +49,8 @@
 		})
 
 	$: $minuteer && (biddings = biddings) && (auctionItem = auctionItem)
+	
+	$: auctionItem && console.log("Auction item changed!!!")
 
 	$: biddingEnded = m(auctionItem.bidding_end).isBefore()
 	$: biddingNotStarted = m(auctionItem.bidding_start).isAfter()
@@ -169,6 +172,22 @@
 				console.error("Could not place bid", error)
 		}
 	}
+	
+	function onToggleWatch() {
+		toggleWatch()
+			.then(operation => {
+				if (operation === "watching")
+					toastr.success("Auction is now watched")
+				else
+					toastr.success("Auction is not watched anymore!")
+
+				pop()
+			})
+			.catch(error => {
+				console.error("Could not toggle watch", error)
+				toastr.error("Could not toggle watch for this auction")
+			})
+	}
 
 	function onDeleteAuction() {
 		deleteAuction(paramAuctionItemId)
@@ -221,6 +240,7 @@
 			{:else}
 				<AuctionItemDetail
 					{...auctionItem}
+					on:toggleWatch={onToggleWatch}
 					on:deleteAuction={onDeleteAuction}
 				/>
 			{/if}
@@ -236,6 +256,7 @@
 				</Notification>
 			{:else if auctionItemChannel}
 				<AuctionItemBiddingForm
+					itemId={auctionItem.id}
 					userJoined={auctionItem.user_joined}
 					on:joinBidding={onJoinBidding}
 					on:leaveBidding={onLeaveBidding}

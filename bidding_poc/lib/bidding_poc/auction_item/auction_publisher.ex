@@ -20,14 +20,22 @@ defmodule BiddingPoc.AuctionPublisher do
     # Phoenix.Channel.broadcast_from(socket, "item_removed", %{item_id: item_id})
   end
 
-  @spec broadcast_bidding_started(AuctionItem.t()) :: :ok | {:error, any}
+  @spec broadcast_bidding_started(AuctionItem.t()) :: :ok | {:error, any()}
   def broadcast_bidding_started(item) do
-    Phoenix.PubSub.broadcast(BiddingPoc.AuctionItemPubSub, "auctions:lobby", {:bidding_started, item})
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionItemPubSub,
+      "auctions:lobby",
+      {:bidding_started, item}
+    )
   end
 
   @spec broadcast_bidding_ended(AuctionItem.t()) :: :ok | {:error, any()}
   def broadcast_bidding_ended(item) do
-    Phoenix.PubSub.broadcast(BiddingPoc.AuctionItemPubSub, "auctions:lobby", {:bidding_ended, item})
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionItemPubSub,
+      "auctions:lobby",
+      {:bidding_ended, item}
+    )
   end
 
   @spec broadcast_bid_placed(ItemBid.t()) :: :ok | {:error, any}

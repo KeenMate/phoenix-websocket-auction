@@ -4,8 +4,12 @@ defmodule BiddingPocWeb.UserController do
   alias Phoenix.Token
   alias BiddingPoc.Database.{User}
 
-  def create(conn, %{"username" => username, "password" => password}) do
-    case User.create_user(username, password) do
+  def create(conn, %{
+        "username" => username,
+        "display_name" => display_name,
+        "password" => password
+      }) do
+    case User.create_user(username, display_name, password) do
       {:ok, new_user} ->
         user_to_return =
           new_user

@@ -12,13 +12,8 @@
 	export let inserted_at = null
 	export let bidding_start = null
 	export let bidding_end = null
-
-	function reassignComputableProps() {
-		inserted_at = inserted_at
-		bidding_start = bidding_start
-		bidding_end = bidding_end
-	}
-
+	export let userStatus = "nothing"
+	
 	function formatDateTime(val) {
 		if (!val)
 			return ""
@@ -62,6 +57,13 @@
 						{/if}
 					</div>
 					<div class="level-right">
+						<TheButton on:click={() => dispatch("toggleWatch")}>
+							{#if ["watching", "joined"].includes(userStatus)}
+								Unwatch
+							{:else}
+								Watch
+							{/if}
+						</TheButton>
 						<TheButton isDanger on:click={onDeleteClick}>
 							Delete
 						</TheButton>
@@ -80,7 +82,7 @@
 		{/if}
 		{#if bidding_end}
 			<b>Bidding end: </b>
-			{m(bidding_end).calendar()} <i>({m(bidding_end).fromNow()})</i>
+			{m(bidding_end).calendar()} <i>({m(bidding_end).fromNow()} {something.fromNow()})</i>
 			<br>
 		{/if}
 		{#if description}

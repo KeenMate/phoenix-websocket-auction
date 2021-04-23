@@ -56,14 +56,48 @@ defmodule BiddingPocWeb.BiddingChannel do
     item_id = get_item_id(socket)
     user_id = get_user_id(socket)
 
-    UserInAuction.remove_user_from_auction(item_id, user_id)
-
     new_socket =
-      socket
-      |> put_user_status(:nothing)
-      |> update_presence_user_status()
+      UserInAuction.remove_user_from_auction(item_id, user_id)
+      |> case do
+        {:error, :not_found} ->
+          socket
+
+        {:ok, :removed} ->
+          socket
+          |> put_user_status(:nothing)
+          |> update_presence_user_status()
+
+        {:ok, :bidding_left} ->
+          socket
+          |> put_user_status(:watching)
+          |> update_presence_user_status()
+      end
 
     {:reply, :ok, new_socket}
+  end
+
+  def handle_in("toggle_watch", _payload, socket) do
+    UserInAuction.toggle_watched_auction(get_item_id(socket), get_user_id(socket))
+    |> case do
+      {:error, :not_found} = error ->
+        {:reply, error, socket}
+
+      {:ok, :watched} = res ->
+        new_socket =
+          socket
+          |> put_user_status(:watching)
+          |> update_presence_user_status()
+
+        {:reply, res, new_socket}
+
+      {:ok, :unwatched} = res ->
+        new_socket =
+          socket
+          |> put_user_status(:asd)
+          |> update_presence_user_status()
+
+        {:reply, res, new_socket}
+    end
   end
 
   def handle_in("place_bid", %{"amount" => amount}, socket) when is_number(amount) do
@@ -99,6 +133,12 @@ defmodule BiddingPocWeb.BiddingChannel do
     UserStoreAgent.set_current_auction(get_user_id(socket), get_item_id(socket))
 
     {:noreply, socket}
+  end
+
+  @impl true
+  def terminate({:shutdown, _}, socket) do
+    UserStoreAgent.clear_current_auction(get_user_id(socket))
+    :ok
   end
 
   defp subscribe_to_auction_item_pubsub(socket) do
@@ -176,7 +216,11 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   defp update_presence_user_status(socket) do
-    Presence.update(socket, get_user_id(socket), &Map.put(&1, :user_status, socket.assigns.user_status))
+    Presence.update(
+      socket,
+      get_user_id(socket),
+      &Map.put(&1, :user_status, socket.assigns.user_status)
+    )
 
     socket
   end

@@ -1,12 +1,15 @@
 <script>
-	import {createEventDispatcher} from "svelte"
+	import {createEventDispatcher, onDestroy, onMount} from "svelte"
+	import eventBus from "../../helpers/event-bus"
 	import NumberInput from "../forms/NumberInput.svelte"
 	import TheButton from "../ui/TheButton.svelte"
 
 	export let userJoined = false
+	export let itemId = null
 
 	let currentBid = 0
-
+	let amountFocused = false
+	
 	const dispatch = createEventDispatcher()
 
 	function onPlaceBid() {
@@ -33,6 +36,26 @@
 		else
 			onJoinBidding()
 	}
+	
+	function onBidPlaced({itemId: bidPlacedItemId, msg: bid}) {
+		if (bidPlacedItemId !== itemId || amountFocused || currentBid)
+			return
+		
+		currentBid = bid.amount
+	}
+	
+	function eventBusListeners(add = false) {
+		const method = add && "on" || "detach"
+		eventBus[method]("bid_placed", onBidPlaced)
+	}
+	
+	onMount(() => {
+		eventBusListeners(true)
+	})
+	
+	onDestroy(() => {
+		eventBusListeners()
+	})
 </script>
 
 <form class="mb-3" on:submit={onSubmit}>
@@ -44,6 +67,8 @@
 					label="Your bid"
 					required
 					isHorizontal
+					on:focus={() => amountFocused = true}
+					on:blur={() => amountFocused = false}
 					on:input={({detail: d}) => currentBid = d}
 				/>
 			{/if}

@@ -102,7 +102,9 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_info({:bidding_started, %AuctionItem{} = auction_item}, socket) do
-    unless user_interested_in_auction_item?(socket, auction_item) do
+    Logger.debug("[PES]: Catched bidding started")
+
+    if user_interested_in_auction_item?(socket, auction_item) do
       push(socket, "bidding_started", auction_item)
     end
 
@@ -139,9 +141,9 @@ defmodule BiddingPocWeb.AuctionChannel do
   defp user_interested_in_auction_item?(socket, auction_item) do
     user_id = get_user_id(socket)
 
-    UserManager.is_auction_currently_viewed?(user_id, auction_item.id)
-    || category_watched_by_user?(user_id, auction_item)
-    || UserInAuction.user_in_auction?(auction_item.id, user_id)
+    UserManager.is_auction_currently_viewed?(user_id, auction_item.id) ||
+      category_watched_by_user?(user_id, auction_item) ||
+      UserInAuction.user_in_auction?(auction_item.id, user_id)
   end
 
   defp category_watched_by_user?(user_id, auction_item) do

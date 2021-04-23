@@ -7,10 +7,11 @@
 	$: watchingUsers = users && users.filter(x => !userJoined(x)) || []
 
 	function userJoined(user) {
-		return user.user_joined
+		return user.user_status === "joined"
 	}
 </script>
 
+<!--{@debug users}-->
 <aside class="menu">
 	<p class="menu-label">
 		Involved users ({involvedUsers.length})
