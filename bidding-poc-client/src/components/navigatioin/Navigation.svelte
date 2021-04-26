@@ -9,18 +9,23 @@
 
 	export let user = {}
 
+	let navExpanded = false
+
 	$: hideLoginButton = $location === Urls.Login
 	$: hideRegisterButton = $location === Urls.Register
 
+	function toggleNav() {
+		navExpanded = !navExpanded
+	}
 </script>
 
 <nav class="navbar" role="navigation" aria-label="main navigation">
 	<div class="navbar-brand">
 		<BrandLogo />
-		<HamburgerButton />
+		<HamburgerButton {navExpanded} on:click={toggleNav} />
 	</div>
 
-	<div id="navbarBasicExample" class="navbar-menu">
+	<div id="navbarBasicExample" class="navbar-menu" class:is-active={navExpanded}>
 		<div class="navbar-start">
 			<NavButton link={Urls.Auctions}>
 				Auctions
