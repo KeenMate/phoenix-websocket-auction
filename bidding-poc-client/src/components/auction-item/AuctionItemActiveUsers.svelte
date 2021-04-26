@@ -3,7 +3,7 @@
 
 	export let users = []
 
-	$: involvedUsers = users && users.filter(x => userJoined(x)) || []
+	$: biddingUsers = users && users.filter(x => userJoined(x)) || []
 	$: watchingUsers = users && users.filter(x => !userJoined(x)) || []
 
 	function userJoined(user) {
@@ -14,10 +14,10 @@
 <!--{@debug users}-->
 <aside class="menu">
 	<p class="menu-label">
-		Involved users ({involvedUsers.length})
+		Bidding users ({biddingUsers.length})
 	</p>
 	<ul class="menu-list">
-		{#each involvedUsers as user}
+		{#each biddingUsers as user}
 			<li>
 				<UserLink {user} />
 			</li>

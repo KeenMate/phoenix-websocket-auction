@@ -27,6 +27,9 @@
 
 	<div id="navbarBasicExample" class="navbar-menu" class:is-active={navExpanded}>
 		<div class="navbar-start">
+			<NavButton link={Urls.MyAuctions}>
+				My auctions
+			</NavButton>
 			<NavButton link={Urls.Auctions}>
 				Auctions
 			</NavButton>

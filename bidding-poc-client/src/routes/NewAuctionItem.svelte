@@ -13,6 +13,7 @@
 	let title = ""
 	let categoryId = null
 	let startPrice = 0
+	let increment = 10
 	let biddingEnd = m().add(3, "minute").toDate()
 	// minutes
 	let postponedFor = null
@@ -110,9 +111,17 @@
 				<div class="column is-3">
 					<NumberInput
 						value={startPrice}
-						label="Starting price"
+						label="Minimum bid"
 						required
 						on:input={({detail: d}) => startPrice = d}
+					/>
+				</div>
+				<div class="column is-3">
+					<NumberInput
+						value={increment}
+						label="Increment"
+						required
+						on:input={({detail: d}) => increment = d}
 					/>
 				</div>
 			</div>
@@ -120,7 +129,7 @@
 				<div class="column is-narrow">
 					<BulmaSelect
 						value={postponedFor}
-						label="Delayed bidding"
+						label="Delayed start of auction by"
 						on:change={({detail: d}) => postponedFor = Number(d)}
 					>
 						<option value="0">No delay</option>
@@ -132,7 +141,7 @@
 				<div class="column is-narrow">
 					<DateInput
 						value={biddingEnd}
-						label="Bidding end"
+						label="Auction ends at"
 						required
 						on:input={({detail: d}) => biddingEnd = d}
 					/>
