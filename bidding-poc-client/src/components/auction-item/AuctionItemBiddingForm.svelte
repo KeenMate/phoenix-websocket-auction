@@ -19,17 +19,17 @@
 
 	// todo: Use Auction's min_step value when it becomes available
 	$: if (userStatus === "joined" && lastBid) {
-		if (!(amountFocused && !currentBid)) {
-			currentBid = lastBid.amount
-		} else {
-			if (lastBid.amount > currentBid) {
+		if (amountFocused) {
+			if (currentBid < lastBid.amount) {
 				if (currentBid) {
 					toastr.warning("Your bid is too small (rewritten to the minimum possible amount)")
 					blockFor(3000)
 				}
 
 				currentBid = lastBid.amount
-			}	
+			}
+		} else if (!currentBid) {
+			currentBid = lastBid.amount
 		}
 	}
 	
@@ -41,7 +41,6 @@
 			return
 
 		dispatch("placeBid", currentBid)
-		currentBid = 0
 	}
 
 	function onPlaceBidSuccess(itemBid) {
