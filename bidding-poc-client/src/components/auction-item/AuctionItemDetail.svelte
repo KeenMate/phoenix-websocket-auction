@@ -1,14 +1,15 @@
 <script>
 	import {createEventDispatcher} from "svelte"
 	import m from "moment"
-	import Card from "../ui/Card.svelte"
-	import TheButton from "../ui/TheButton.svelte"
+ 	import {userStore} from "../../providers/auth"
 	import {minuteer} from "../../stores/other"
+	import Card from "../ui/Card.svelte"
 	import AuctionControls from "./AuctionControls.svelte"
 
 	const dispatch = createEventDispatcher()
 
 	export let title = ""
+	export let user_id = null
 	export let category_id = 0
 	export let category = ""
 	export let description = ""
@@ -21,6 +22,8 @@
 	$: biddingStartedRelative = $minuteer && biddingStartMoment && biddingStartMoment.fromNow()
 	$: biddingEndMoment = bidding_end && m(bidding_end)
 	$: biddingEndedRelative = $minuteer && biddingEndMoment && biddingEndMoment.fromNow()
+
+	$: isAuthor = $userStore && $userStore.id === user_id
 
 	function formatDateTime(val) {
 		if (!val)
@@ -65,11 +68,13 @@
 						{/if}
 					</div>
 					<div class="level-right">
-						<AuctionControls
-							{user_status}
-							on:toggleWatch
-							on:delete={onDeleteClick}
-						/>
+						{#if isAuthor}
+							<AuctionControls
+								{user_status}
+								on:toggleWatch
+								on:delete={onDeleteClick}
+							/>
+						{/if}
 					</div>
 				</div>
 			</div>

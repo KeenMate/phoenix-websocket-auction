@@ -2,34 +2,38 @@
 	import {createEventDispatcher, onDestroy, onMount} from "svelte"
 	import toastr from "../../helpers/toastr-helpers"
 	import eventBus from "../../helpers/event-bus"
+	import {userStore} from "../../providers/auth"
 	import NumberInput from "../forms/NumberInput.svelte"
 	import TheButton from "../ui/TheButton.svelte"
 
+	const dispatch = createEventDispatcher()
+	
 	export let userStatus = "nothing"
 	export let itemId = null
+	export let ownerId = null
 	export let lastBid = null
 
 	let currentBid = 0
 	let amountFocused = false
 	let blocked = false
 
-	const dispatch = createEventDispatcher()
-
 	// todo: Use Auction's min_step value when it becomes available
 	$: if (userStatus === "joined" && lastBid) {
-		if (!(amountFocused && !currentBid)) {
-			currentBid = lastBid.amount
-		} else {
-			if (lastBid.amount > currentBid) {
+		if (amountFocused) {
+			if (currentBid < lastBid.amount) {
 				if (currentBid) {
 					toastr.warning("Your bid is too small (rewritten to the minimum possible amount)")
 					blockFor(3000)
 				}
 
 				currentBid = lastBid.amount
-			}	
+			}
+		} else if (!currentBid) {
+			currentBid = lastBid.amount
 		}
 	}
+	
+	$: isAuthor = $userStore && $userStore.id === ownerId
 
 	function onPlaceBid() {
 		// todo: Use Auction's min_step value when it becomes available
@@ -37,7 +41,6 @@
 			return
 
 		dispatch("placeBid", currentBid)
-		currentBid = 0
 	}
 
 	function onPlaceBidSuccess(itemBid) {
@@ -109,19 +112,21 @@
 				/>
 			{/if}
 		</div>
-		<div class="column is-narrow">
-			{#if userStatus === "joined"}
-				<TheButton isLink disabled={blocked} on:click={onPlaceBid}>
-					Place bid
-				</TheButton>
-				<TheButton isWarning on:click={onLeaveBidding}>
-					Leave bidding
-				</TheButton>
-			{:else}
-				<TheButton isPrimary on:click={onJoinBidding}>
-					Join bidding
-				</TheButton>
-			{/if}
-		</div>
+		{#if !isAuthor}
+			<div class="column is-narrow">
+				{#if userStatus === "joined"}
+					<TheButton isLink disabled={blocked} on:click={onPlaceBid}>
+						Place bid
+					</TheButton>
+					<TheButton isWarning on:click={onLeaveBidding}>
+						Leave bidding
+					</TheButton>
+				{:else}
+					<TheButton isPrimary on:click={onJoinBidding}>
+						Join bidding
+					</TheButton>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </form>
