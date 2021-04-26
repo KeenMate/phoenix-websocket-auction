@@ -51,7 +51,7 @@
 	$: $minuteer && (biddings = biddings)
 
 	$: biddingEnded = m(auctionItem.bidding_end).isBefore()
-	$: biddingNotStarted = m(auctionItem.bidding_start).isAfter()
+	$: biddingStarted = m(auctionItem.bidding_start).isBefore()
 
 	$: lastBid = biddings && biddings[0]
 
@@ -281,7 +281,7 @@
 				<Notification>
 					This auction has already ended
 				</Notification>
-			{:else if biddingNotStarted}
+			{:else if !biddingStarted}
 				<Notification>
 					This auction has not started yet
 				</Notification>
@@ -299,7 +299,7 @@
 			<AuctionItemBiddings {biddings} />
 		</div>
 		<div class="column is-2">
-			<AuctionItemActiveUsers users={users && $users}/>
+			<AuctionItemActiveUsers users={users && $users} />
 		</div>
 	</div>
 </section>

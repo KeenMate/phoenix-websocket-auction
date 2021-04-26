@@ -119,14 +119,13 @@
 		</div>
 		{#if !isAuthor}
 			<div class="column is-narrow">
-				{#if userStatus === "joined" && !isAuthorOfLastBid}
-					<TheButton isLink disabled={blocked} on:click={onPlaceBid}>
+				{#if userStatus === "joined"}
+					<TheButton isLink disabled={blocked || isAuthorOfLastBid} on:click={onPlaceBid}>
 						Place bid
 					</TheButton>
-					<TheButton isWarning on:click={onLeaveBidding}>
+					<TheButton isWarning disabled={isAuthorOfLastBid} on:click={onLeaveBidding}>
 						Leave bidding
 					</TheButton>
-				{:else if isAuthorOfLastBid}
 				{:else}
 					<TheButton isPrimary on:click={onJoinBidding}>
 						Join bidding
