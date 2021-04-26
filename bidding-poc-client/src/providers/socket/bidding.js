@@ -62,6 +62,10 @@ export function leaveBidding(channel) {
 	return pushSocketMessage(channel, "leave_bidding")
 }
 
+export async function toggleWatch(channel) {
+	return pushSocketMessage(channel, "toggle_watch", {})
+}
+
 export function placeBid(channel, amount) {
 	return pushSocketMessage(channel, "place_bid", {amount})
 }
