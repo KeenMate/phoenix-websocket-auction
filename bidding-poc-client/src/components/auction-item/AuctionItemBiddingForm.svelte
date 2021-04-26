@@ -16,24 +16,22 @@
 	let currentBid = 0
 	let amountFocused = false
 	let blocked = false
-
-	// todo: Use Auction's min_step value when it becomes available
+	
 	$: if (userStatus === "joined" && lastBid) {
 		if (amountFocused) {
 			if (currentBid < lastBid.amount) {
-				if (currentBid) {
-					toastr.warning("Your bid is too small (rewritten to the minimum possible amount)")
-					blockFor(3000)
-				}
-
+				toastr.warning("Your bid is too small (updated to the next minimal bid)")
+				
+				// todo: Use Auction's min_step value when it becomes available
 				currentBid = lastBid.amount
 			}
-		} else if (!currentBid) {
+		} else {
 			currentBid = lastBid.amount
 		}
 	}
 	
 	$: isAuthor = $userStore && $userStore.id === ownerId
+	$: isAuthorOfLastBid = (lastBid && lastBid.user_id) === ($userStore && $userStore.id)
 
 	function onPlaceBid() {
 		// todo: Use Auction's min_step value when it becomes available
@@ -52,16 +50,22 @@
 	}
 
 	function onLeaveBidding() {
+		if (isAuthorOfLastBid) {
+			toastr.warning("Your bid is last (cannot leave when you placed last bid)")
+			return
+		}
 		dispatch("leaveBidding")
 	}
 
 	function onSubmit(ev) {
 		ev.preventDefault()
 
-		if (userStatus === "joined")
-			onPlaceBid()
-		else
-			onJoinBidding()
+		if (isAuthorOfLastBid) {
+			toastr.warning("Your bid is last (cannot place another one right now)")
+			return
+		}
+		
+		onPlaceBid()
 	}
 
 	function onBidPlaced({itemId: bidPlacedItemId, msg: bid}) {
@@ -70,6 +74,7 @@
 
 		// todo: Use Auction's min_step value when it becomes available
 		currentBid = bid.amount
+		blockFor(3000)
 	}
 
 	function eventBusListeners(add = false) {
@@ -114,13 +119,14 @@
 		</div>
 		{#if !isAuthor}
 			<div class="column is-narrow">
-				{#if userStatus === "joined"}
+				{#if userStatus === "joined" && !isAuthorOfLastBid}
 					<TheButton isLink disabled={blocked} on:click={onPlaceBid}>
 						Place bid
 					</TheButton>
 					<TheButton isWarning on:click={onLeaveBidding}>
 						Leave bidding
 					</TheButton>
+				{:else if isAuthorOfLastBid}
 				{:else}
 					<TheButton isPrimary on:click={onJoinBidding}>
 						Join bidding
