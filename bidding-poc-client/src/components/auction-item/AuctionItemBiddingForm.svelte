@@ -1,5 +1,6 @@
 <script>
 	import {createEventDispatcher, onDestroy, onMount} from "svelte"
+	import toastr from "../../helpers/toastr-helpers"
 	import eventBus from "../../helpers/event-bus"
 	import NumberInput from "../forms/NumberInput.svelte"
 	import TheButton from "../ui/TheButton.svelte"
@@ -10,19 +11,33 @@
 
 	let currentBid = 0
 	let amountFocused = false
+	let blocked = false
 
 	const dispatch = createEventDispatcher()
 
 	// todo: Use Auction's min_step value when it becomes available
-	$: userStatus === "joined" && (currentBid = lastBid && lastBid.amount || 0)
+	$: if (userStatus === "joined" && !amountFocused && lastBid) {
+		if (lastBid.amount > currentBid) {
+			if (currentBid) {
+				toastr.warning("Your bid is too small (rewritten to the minimum possible amount)")
+				blockFor(3000)
+			}
+
+			currentBid = lastBid.amount
+		}
+	}
 
 	function onPlaceBid() {
 		// todo: Use Auction's min_step value when it becomes available
-		if (!currentBid || currentBid <= 0)
+		if (!currentBid || currentBid <= 0 || blocked)
 			return
 
 		dispatch("placeBid", currentBid)
 		currentBid = 0
+	}
+
+	function onPlaceBidSuccess(itemBid) {
+		toastr.success(`Bid ${itemBid.amount} placed successfully`)
 	}
 
 	function onJoinBidding() {
@@ -53,6 +68,17 @@
 	function eventBusListeners(add = false) {
 		const method = add && "on" || "detach"
 		eventBus[method]("bid_placed", onBidPlaced)
+		eventBus[method]("place_bid_success", onPlaceBidSuccess)
+	}
+
+	function blockFor(amount) {
+		if (blocked)
+			return
+
+		blocked = true
+		setTimeout(() => {
+			blocked = false
+		}, amount)
 	}
 
 	onMount(() => {
@@ -81,7 +107,7 @@
 		</div>
 		<div class="column is-narrow">
 			{#if userStatus === "joined"}
-				<TheButton isLink on:click={onPlaceBid}>
+				<TheButton isLink disabled={blocked} on:click={onPlaceBid}>
 					Place bid
 				</TheButton>
 				<TheButton isWarning on:click={onLeaveBidding}>
