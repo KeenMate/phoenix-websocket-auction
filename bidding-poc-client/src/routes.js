@@ -3,6 +3,7 @@ import Login from "./routes/Login.svelte"
 import Register from "./routes/Register.svelte"
 import Profile from "./routes/Profile.svelte"
 import Auctions from "./routes/Auctions.svelte"
+import MyAuctions from "./routes/MyAuctions.svelte"
 import Users from "./routes/Users.svelte"
 import UserDetail from "./routes/UserDetail.svelte"
 import NewAuctionItem from "./routes/NewAuctionItem.svelte"
@@ -15,6 +16,7 @@ export const Urls = {
 	Register: "/register",
 	Profile: "/profile",
 	Auctions: "/auctions",
+	MyAuctions: "/me/auctions",
 	Users: "/users",
 	UserProfile: "/user/:id",
 	UserEdit: "/user/:id/edit",
@@ -40,6 +42,7 @@ export default {
 	[Urls.Register]: Register,
 	[Urls.Profile]: Profile,
 	[Urls.Auctions]: Auctions,
+	[Urls.MyAuctions]: MyAuctions,
 	[Urls.Users]: Users,
 	[Urls.UserEdit]: UserDetail,
 	[Urls.NewAuctionItem]: NewAuctionItem,
