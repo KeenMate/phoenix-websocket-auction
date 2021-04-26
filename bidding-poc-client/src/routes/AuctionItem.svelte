@@ -150,7 +150,7 @@
 			.catch(error => {
 				switch (error) {
 					case "already_bidded":
-						toastr.danger("Could not leave auction because you have already placed bid")
+						toastr.error("Could not leave auction because you have already placed bid")
 						console.error("Could not leave auction because you have already placed bid")
 						break
 
@@ -161,7 +161,7 @@
 
 					default:
 						console.error("Could not leave auction", error)
-						toastr.danger("Could not leave auction")
+						toastr.error("Could not leave auction")
 						break
 				}
 			})
