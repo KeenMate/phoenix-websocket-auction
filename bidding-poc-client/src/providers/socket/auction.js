@@ -97,11 +97,6 @@ function listenAuctionEnded(channel) {
 	})
 }
 
-export async function toggleWatch(auctionId) {
-	const channel = await auctionChannelAwaiter
-	return pushSocketMessage(channel, "toggle_watched_item", {item_id: auctionId})
-}
-
 export async function deleteAuction(auctionId) {
 	const channel = await auctionChannelAwaiter
 	return pushSocketMessage(channel, "delete_auction", {item_id: auctionId})

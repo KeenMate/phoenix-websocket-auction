@@ -30,7 +30,6 @@ defmodule BiddingPocWeb.AuctionChannel do
       {:ok, auction_item} = res ->
         # broadcast_from(socket, "item_added", auction_item)
 
-        # {:added, socket_with_new_watched_items} = toggle_watched_item(socket, auction_item.id)
         UserInAuction.add_user_to_auction(auction_item.id, user_id, false)
 
         {:reply, res, socket}
@@ -48,28 +47,6 @@ defmodule BiddingPocWeb.AuctionChannel do
 
   def handle_in("get_auction_categories", _payload, socket) do
     {:reply, {:ok, AuctionItemCategory.get_categories()}, socket}
-  end
-
-  def handle_in("toggle_watch_item", %{"item_id" => item_id}, socket) do
-    user_id = get_user_id(socket)
-
-    operation =
-      item_id
-      |> UserInAuction.toggle_watched_auction(user_id)
-      |> case do
-        {:error, :not_found} ->
-          UserInAuction.add_user_to_auction(item_id, user_id, false)
-          :watched
-
-        {:ok, operation} when operation in [:watched, :unwatched] ->
-          operation
-      end
-
-    {
-      :reply,
-      operation,
-      socket
-    }
   end
 
   def handle_in("delete_auction", %{"item_id" => item_id}, socket) do
