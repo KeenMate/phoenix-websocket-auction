@@ -7,7 +7,8 @@ defmodule BiddingPoc.AuctionManager do
   alias BiddingPoc.AuctionItemSupervisor
   alias BiddingPoc.AuctionPublisher
 
-  @spec create_auction(map(), pos_integer()) :: {:ok, AuctionItem.t()} | {:error, :id_filled | :title_used}
+  @spec create_auction(map(), pos_integer()) ::
+          {:ok, AuctionItem.t()} | {:error, :id_filled | :title_used}
   def create_auction(params, user_id) do
     params
     |> new_item_from_params!()
@@ -37,7 +38,8 @@ defmodule BiddingPoc.AuctionManager do
     }
   end
 
-  @spec remove_auction(pos_integer(), pos_integer()) :: {:error, :forbidden | :not_found | :user_not_found} | {:ok, AuctionItem.t()}
+  @spec remove_auction(pos_integer(), pos_integer()) ::
+          {:error, :forbidden | :not_found | :user_not_found} | {:ok, AuctionItem.t()}
   def remove_auction(item_id, user_id) do
     item_id
     |> AuctionItem.user_id_authorized?(user_id)
@@ -49,6 +51,7 @@ defmodule BiddingPoc.AuctionManager do
           {:ok, deleted} = res ->
             AuctionPublisher.broadcast_item_removed(deleted)
             res
+
           {:error, :not_found} = error ->
             Logger.warn("Attempted to remove nonexisting auction item", item_id: inspect(item_id))
             error

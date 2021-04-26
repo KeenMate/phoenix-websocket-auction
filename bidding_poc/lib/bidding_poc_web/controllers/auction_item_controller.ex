@@ -4,12 +4,14 @@ defmodule BiddingPocWeb.AuctionItemController do
   require Logger
 
   alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, ItemBid}
+  alias BiddingPoc.AuctionManager
 
   def index(conn, params) do
     skip =
       params
       |> Map.get("skip", "0")
       |> String.to_integer()
+
     take =
       params
       |> Map.get("take", "10")
@@ -17,18 +19,17 @@ defmodule BiddingPocWeb.AuctionItemController do
 
     conn
     |> put_status(:ok)
-    |> json(AuctionItem.get_last_items(skip, take)
-      |> Enum.map(&Map.from_struct/1))
+    |> json(
+      AuctionItem.get_last_items(skip, take)
+      |> Enum.map(&Map.from_struct/1)
+    )
   end
 
   def create(conn, auction_item_params) do
     user_id = conn.assigns.user_id
 
     auction_item_params
-    |> AuctionItem.new_item_from_params!()
-    |> Map.put(:user_id, user_id)
-    |> Map.put(:inserted_at, DateTime.now!("Etc/UTC"))
-    |> AuctionItem.create_auction()
+    |> AuctionManager.create_auction(user_id)
     |> case do
       {:ok, auction_item} ->
         conn
@@ -63,6 +64,7 @@ defmodule BiddingPocWeb.AuctionItemController do
         conn
         |> put_status(:not_found)
         |> json(user_id_not_found_msg())
+
       {:error, _} ->
         conn
         |> put_status(500)

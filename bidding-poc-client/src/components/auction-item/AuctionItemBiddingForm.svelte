@@ -16,14 +16,18 @@
 	const dispatch = createEventDispatcher()
 
 	// todo: Use Auction's min_step value when it becomes available
-	$: if (userStatus === "joined" && !amountFocused && lastBid) {
-		if (lastBid.amount > currentBid) {
-			if (currentBid) {
-				toastr.warning("Your bid is too small (rewritten to the minimum possible amount)")
-				blockFor(3000)
-			}
-
+	$: if (userStatus === "joined" && lastBid) {
+		if (!(amountFocused && !currentBid)) {
 			currentBid = lastBid.amount
+		} else {
+			if (lastBid.amount > currentBid) {
+				if (currentBid) {
+					toastr.warning("Your bid is too small (rewritten to the minimum possible amount)")
+					blockFor(3000)
+				}
+
+				currentBid = lastBid.amount
+			}	
 		}
 	}
 
