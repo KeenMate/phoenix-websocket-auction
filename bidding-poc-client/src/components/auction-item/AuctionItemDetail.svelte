@@ -3,8 +3,11 @@
 	import m from "moment"
 	import Card from "../ui/Card.svelte"
 	import TheButton from "../ui/TheButton.svelte"
+	import {minuteer} from "../../stores/other"
+	import AuctionControls from "./AuctionControls.svelte"
 
 	const dispatch = createEventDispatcher()
+
 	export let title = ""
 	export let category_id = 0
 	export let category = ""
@@ -12,8 +15,13 @@
 	export let inserted_at = null
 	export let bidding_start = null
 	export let bidding_end = null
-	export let userStatus = "nothing"
-	
+	export let user_status = "nothing"
+
+	$: biddingStartMoment = bidding_start && m(bidding_start)
+	$: biddingStartedRelative = $minuteer && biddingStartMoment && biddingStartMoment.fromNow()
+	$: biddingEndMoment = bidding_end && m(bidding_end)
+	$: biddingEndedRelative = $minuteer && biddingEndMoment && biddingEndMoment.fromNow()
+
 	function formatDateTime(val) {
 		if (!val)
 			return ""
@@ -57,17 +65,11 @@
 						{/if}
 					</div>
 					<div class="level-right">
-						<TheButton on:click={() => dispatch("toggleWatch")}>
-							{#if ["watching", "joined"].includes(userStatus)}
-								Unwatch
-							{:else}
-								Watch
-							{/if}
-						</TheButton>
-						<TheButton isDanger on:click={onDeleteClick}>
-							Delete
-						</TheButton>
-						<!-- todo: Render `edit` button if user_id is same as owner id -->
+						<AuctionControls
+							{user_status}
+							on:toggleWatch
+							on:delete={onDeleteClick}
+						/>
 					</div>
 				</div>
 			</div>
@@ -77,12 +79,12 @@
 	<div class="content">
 		{#if bidding_start}
 			<b>Bidding start: </b>
-			{m(bidding_start).calendar()} <i>({m(bidding_start).fromNow()})</i>
+			{biddingStartMoment.calendar()} <i>({biddingStartedRelative})</i>
 			<br>
 		{/if}
 		{#if bidding_end}
 			<b>Bidding end: </b>
-			{m(bidding_end).calendar()} <i>({m(bidding_end).fromNow()} {something.fromNow()})</i>
+			{biddingEndMoment.calendar()} <i>({biddingEndedRelative})</i>
 			<br>
 		{/if}
 		{#if description}

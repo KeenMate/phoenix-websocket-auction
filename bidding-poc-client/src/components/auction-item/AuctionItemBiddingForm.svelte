@@ -4,16 +4,16 @@
 	import NumberInput from "../forms/NumberInput.svelte"
 	import TheButton from "../ui/TheButton.svelte"
 
-	export let userJoined = false
+	export let userStatus = "nothing"
 	export let itemId = null
 
 	let currentBid = 0
 	let amountFocused = false
-	
+
 	const dispatch = createEventDispatcher()
 
 	function onPlaceBid() {
-		if (!currentBid)
+		if (!currentBid || currentBid <= 0)
 			return
 
 		dispatch("placeBid", currentBid)
@@ -31,28 +31,28 @@
 	function onSubmit(ev) {
 		ev.preventDefault()
 
-		if (userJoined)
-			currentBid && onPlaceBid()
+		if (userStatus === "joined")
+			onPlaceBid()
 		else
 			onJoinBidding()
 	}
-	
+
 	function onBidPlaced({itemId: bidPlacedItemId, msg: bid}) {
-		if (bidPlacedItemId !== itemId || amountFocused || currentBid)
+		if (bidPlacedItemId !== itemId || amountFocused)
 			return
-		
+
 		currentBid = bid.amount
 	}
-	
+
 	function eventBusListeners(add = false) {
 		const method = add && "on" || "detach"
 		eventBus[method]("bid_placed", onBidPlaced)
 	}
-	
+
 	onMount(() => {
 		eventBusListeners(true)
 	})
-	
+
 	onDestroy(() => {
 		eventBusListeners()
 	})
@@ -61,7 +61,7 @@
 <form class="mb-3" on:submit={onSubmit}>
 	<div class="columns">
 		<div class="column">
-			{#if userJoined}
+			{#if userStatus === "joined"}
 				<NumberInput
 					value={currentBid}
 					label="Your bid"
@@ -74,7 +74,7 @@
 			{/if}
 		</div>
 		<div class="column is-narrow">
-			{#if userJoined}
+			{#if userStatus === "joined"}
 				<TheButton isLink on:click={onPlaceBid}>
 					Place bid
 				</TheButton>

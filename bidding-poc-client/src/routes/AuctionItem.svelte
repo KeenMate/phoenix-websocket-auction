@@ -26,7 +26,7 @@
 		onAuctionItem: item => auctionItem = item,
 		onBiddings: payload => biddings = payload.biddings
 	}
-	
+
 	$: paramAuctionItemId = Number(params.id)
 
 	$: $socket && initBiddingChannel($socket, paramAuctionItemId, channelListeners)
@@ -48,9 +48,7 @@
 			auctionItemChannel = channel
 		})
 
-	$: $minuteer && (biddings = biddings) && (auctionItem = auctionItem)
-	
-	$: auctionItem && console.log("Auction item changed!!!")
+	$: $minuteer && (biddings = biddings)
 
 	$: biddingEnded = m(auctionItem.bidding_end).isBefore()
 	$: biddingNotStarted = m(auctionItem.bidding_start).isAfter()
@@ -110,7 +108,7 @@
 			.then(() => {
 				toastr.success("Auction joined!")
 				console.log("Auction joined")
-				auctionItem.user_joined = true
+				auctionItem.user_status = "joined"
 			})
 			.catch(error => {
 				console.error("Could not join auction", error)
@@ -121,18 +119,49 @@
 	function onLeaveBidding() {
 		if (!auctionItemChannel) {
 			console.warn("Could not leave bidding because there is no auction channel available")
+			toastr.warning("Connection not alive")
 			return
 		}
 
 		leaveBidding(auctionItemChannel)
-			.then(() => {
-				toastr.success("Auction left!")
-				console.log("Auction left")
-				auctionItem.user_joined = false
+			.then(result => {
+				switch (result) {
+					case "removed":
+						toastr.success("Auction left!")
+						console.log("Auction left")
+						auctionItem.user_status = "nothing"
+						break
+
+					case "bidding_left":
+						toastr.success("Auction is now just watched")
+						console.log("Auction is now just watched")
+						auctionItem.user_status = "watching"
+						break
+
+					default:
+						toastr.success("Auction left")
+						console.log("Auction left but result is not known", result)
+						auctionItem.user_status = "nothing"
+						break
+				}
 			})
 			.catch(error => {
-				console.error("Could not leave auction", error)
-				toastr.error("Could not leave auction")
+				switch (error) {
+					case "already_bidded":
+						toastr.danger("Could not leave auction because you have already placed bid")
+						console.error("Could not leave auction because you have already placed bid")
+						break
+
+					case "not_found":
+						console.error("Could not leave auction because you are not part of it")
+						toastr.error("Could not leave auction because you are not part of it")
+						break
+
+					default:
+						console.error("Could not leave auction", error)
+						toastr.danger("Could not leave auction")
+						break
+				}
 			})
 	}
 
@@ -172,7 +201,7 @@
 				console.error("Could not place bid", error)
 		}
 	}
-	
+
 	function onToggleWatch() {
 		toggleWatch()
 			.then(operation => {
@@ -257,7 +286,7 @@
 			{:else if auctionItemChannel}
 				<AuctionItemBiddingForm
 					itemId={auctionItem.id}
-					userJoined={auctionItem.user_joined}
+					userStatus={auctionItem.user_status}
 					on:joinBidding={onJoinBidding}
 					on:leaveBidding={onLeaveBidding}
 					on:placeBid={onPlaceBid}

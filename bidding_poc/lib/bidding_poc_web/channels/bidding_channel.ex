@@ -56,33 +56,39 @@ defmodule BiddingPocWeb.BiddingChannel do
     item_id = get_item_id(socket)
     user_id = get_user_id(socket)
 
-    new_socket =
-      UserInAuction.remove_user_from_auction(item_id, user_id)
-      |> case do
-        {:error, :not_found} ->
-          socket
+    UserInAuction.remove_user_from_auction(item_id, user_id)
+    |> case do
+      {:error, :not_found} = error ->
+        {:reply, error, socket}
 
-        {:ok, :removed} ->
+      {:error, :already_bidded} = error ->
+        {:reply, error, socket}
+
+      {:ok, :removed} = result ->
+        new_socket =
           socket
           |> put_user_status(:nothing)
           |> update_presence_user_status()
 
-        {:ok, :bidding_left} ->
+        {:reply, result, new_socket}
+
+      {:ok, :bidding_left} = result ->
+        new_socket =
           socket
           |> put_user_status(:watching)
           |> update_presence_user_status()
-      end
 
-    {:reply, :ok, new_socket}
+        {:reply, result, new_socket}
+    end
   end
 
   def handle_in("toggle_watch", _payload, socket) do
     UserInAuction.toggle_watched_auction(get_item_id(socket), get_user_id(socket))
     |> case do
-      {:error, :not_found} = error ->
+      {:error, :joined} = error ->
         {:reply, error, socket}
 
-      {:ok, :watched} = res ->
+      {:ok, :watching} = res ->
         new_socket =
           socket
           |> put_user_status(:watching)
@@ -90,10 +96,10 @@ defmodule BiddingPocWeb.BiddingChannel do
 
         {:reply, res, new_socket}
 
-      {:ok, :unwatched} = res ->
+      {:ok, :not_watching} = res ->
         new_socket =
           socket
-          |> put_user_status(:asd)
+          |> put_user_status(:nothing)
           |> update_presence_user_status()
 
         {:reply, res, new_socket}
@@ -122,17 +128,32 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   def handle_info(:after_join, socket) do
-    setup_presence(socket)
+    user_id = get_user_id(socket)
+    item_id = get_item_id(socket)
+
+    new_socket =
+      case UserInAuction.get_user_status(item_id, user_id) do
+        {:error, :not_found} ->
+          assign(socket, :user_status, "nothing")
+
+        {:ok, :watching} ->
+          assign(socket, :user_status, "watching")
+
+        {:ok, :joined} ->
+          assign(socket, :user_status, "joined")
+      end
+
+    setup_presence(new_socket)
 
     # send init data to client
-    socket
+    new_socket
     |> push_auction_item()
     |> push_auction_item_biddings()
     |> subscribe_to_auction_item_pubsub()
 
-    UserStoreAgent.set_current_auction(get_user_id(socket), get_item_id(socket))
+    UserStoreAgent.set_current_auction(user_id, item_id)
 
-    {:noreply, socket}
+    {:noreply, new_socket}
   end
 
   @impl true

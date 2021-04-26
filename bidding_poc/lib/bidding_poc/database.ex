@@ -770,9 +770,18 @@ defdatabase BiddingPoc.Database do
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
+    @spec get_user_bids(pos_integer()) :: [t()]
     def get_user_bids(user_id) when is_number(user_id) do
       Amnesia.transaction do
         match(user_id: user_id)
+        |> Amnesia.Selection.values()
+      end
+    end
+
+    @spec get_user_auction_bids(pos_integer(), pos_integer()) :: [t()]
+    def get_user_auction_bids(item_id, user_id) when is_number(user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
         |> Amnesia.Selection.values()
       end
     end
@@ -843,62 +852,6 @@ defdatabase BiddingPoc.Database do
     end
   end
 
-  # deftable WatchedAuction, [{:id, autoincrement}, :user_id, :item_id], index: [:user_id, :item_id] do
-  #   @moduledoc """
-  #   This table holds informations on users watching auctions
-  #   """
-
-  #   @type t() :: %WatchedAuction{
-  #           id: pos_integer() | nil,
-  #           user_id: pos_integer(),
-  #           item_id: pos_integer()
-  #         }
-
-  #   @spec watch_item(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :exists}
-  #   def watch_item(item_id, user_id) when is_number(item_id) and is_number(user_id) do
-  #     Amnesia.transaction do
-  #       match(item_id: item_id, user_id: user_id)
-  #       |> Amnesia.Selection.values()
-  #       |> case do
-  #         [] ->
-  #           new_watch =
-  #             %WatchedAuction{item_id: item_id, user_id: user_id}
-  #             |> write()
-
-  #           {:ok, new_watch}
-
-  #         _ ->
-  #           {:error, :exists}
-  #       end
-  #     end
-  #   end
-
-  #   @spec unwatch_item(pos_integer(), pos_integer()) :: :ok | {:error, :not_found}
-  #   def unwatch_item(item_id, user_id) when is_number(item_id) and is_number(user_id) do
-  #     Amnesia.transaction do
-  #       match(item_id: item_id, user_id: user_id)
-  #       |> Amnesia.Selection.values()
-  #       |> case do
-  #         [] ->
-  #           {:error, :not_found}
-
-  #         [found] ->
-  #           delete(found.id)
-
-  #           :ok
-  #       end
-  #     end
-  #   end
-
-  #   @spec get_watched_auctions(pos_integer()) :: [t()]
-  #   def get_watched_auctions(user_id) when is_number(user_id) do
-  #     Amnesia.transaction do
-  #       match(user_id: user_id)
-  #       |> Amnesia.Selection.values()
-  #     end
-  #   end
-  # end
-
   deftable UserInAuction, [{:id, autoincrement}, :user_id, :item_id, :joined],
     index: [:user_id, :item_id] do
     @moduledoc """
@@ -929,14 +882,22 @@ defdatabase BiddingPoc.Database do
 
             {:ok, result}
 
-          x when is_list(x) ->
-            {:error, :exists}
+          [%{joined: ^join} = found] ->
+            {:ok, found}
+
+          [found] ->
+            updated =
+              found
+              |> Map.put(:joined, join)
+              |> write()
+
+            {:ok, updated}
         end
       end
     end
 
     @spec remove_user_from_auction(pos_integer(), pos_integer()) ::
-            {:ok, :removed | :bidding_left} | {:error, :not_found}
+            {:ok, :removed | :bidding_left} | {:error, :not_found | :already_bidded}
     def remove_user_from_auction(item_id, user_id)
         when is_number(item_id) and is_number(user_id) do
       Amnesia.transaction do
@@ -951,11 +912,17 @@ defdatabase BiddingPoc.Database do
             {:ok, :removed}
 
           [%{joined: true} = x] ->
-            x
-            |> Map.put(:joined, false)
-            |> write()
+            case ItemBid.get_user_auction_bids(item_id, user_id) do
+              [] ->
+                x
+                |> Map.put(:joined, false)
+                |> write()
 
-            {:ok, :bidding_left}
+                {:ok, :bidding_left}
+
+              _ ->
+                {:error, :already_bidded}
+            end
         end
       end
     end
