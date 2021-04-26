@@ -53,6 +53,8 @@
 	$: biddingEnded = m(auctionItem.bidding_end).isBefore()
 	$: biddingNotStarted = m(auctionItem.bidding_start).isAfter()
 
+	$: lastBid = biddings && biddings[0]
+
 	function reassignAuctionItem() {
 		auctionItem = auctionItem
 	}
@@ -287,6 +289,7 @@
 				<AuctionItemBiddingForm
 					itemId={auctionItem.id}
 					userStatus={auctionItem.user_status}
+					{lastBid}
 					on:joinBidding={onJoinBidding}
 					on:leaveBidding={onLeaveBidding}
 					on:placeBid={onPlaceBid}

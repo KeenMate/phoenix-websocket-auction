@@ -6,13 +6,18 @@
 
 	export let userStatus = "nothing"
 	export let itemId = null
+	export let lastBid = null
 
 	let currentBid = 0
 	let amountFocused = false
 
 	const dispatch = createEventDispatcher()
 
+	// todo: Use Auction's min_step value when it becomes available
+	$: userStatus === "joined" && (currentBid = lastBid && lastBid.amount || 0)
+
 	function onPlaceBid() {
+		// todo: Use Auction's min_step value when it becomes available
 		if (!currentBid || currentBid <= 0)
 			return
 
@@ -41,6 +46,7 @@
 		if (bidPlacedItemId !== itemId || amountFocused)
 			return
 
+		// todo: Use Auction's min_step value when it becomes available
 		currentBid = bid.amount
 	}
 
