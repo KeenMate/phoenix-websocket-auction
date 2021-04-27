@@ -16,11 +16,11 @@ defmodule BiddingPoc.NotificationHubServer do
     {:ok, arg}
   end
 
-  # TODO: handle auctions:lobby events (process them using tasks)
+  # TODO: handle auctions events (process them using tasks)
 
   @impl true
   def handle_info(:after_init, state) do
-    AuctionPublisher.subscribe_auctions_lobby()
+    AuctionPublisher.subscribe_auctions_topic()
 
     {:noreply, state}
   end

@@ -9,7 +9,7 @@ defmodule BiddingPocWeb.UserSocket do
 
   channel "users:lobby", BiddingPocWeb.UsersChannel
   channel "user:*", BiddingPocWeb.UserChannel
-  channel "auction:lobby", BiddingPocWeb.AuctionChannel
+  channel "auction:lobby", BiddingPocWeb.AuctionsChannel
   channel "bidding:*", BiddingPocWeb.BiddingChannel
 
   @impl true

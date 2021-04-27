@@ -34,7 +34,8 @@ export async function createAuction(auction) {
 		category_id: auction.categoryId,
 		start_price: auction.startPrice,
 		bidding_start: auction.biddingStart,
-		bidding_end: auction.biddingEnd
+		bidding_end: auction.biddingEnd,
+		minimum_bid_step: auction.minimumBidStep
 	})
 }
 

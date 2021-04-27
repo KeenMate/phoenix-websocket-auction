@@ -11,7 +11,7 @@ defmodule BiddingPocWeb.AuctionChannel do
   alias BiddingPocWeb.Presence
 
   @impl true
-  def join("auction:lobby", _payload, socket) do
+  def join("auction:" <> item_id, _payload, socket) do
     send(self(), :after_join)
 
     {
@@ -21,63 +21,15 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   @impl true
-  def handle_in("create_auction", auction_item_params, socket) do
-    user_id = socket.assigns.user.id
-
-    auction_item_params
-    |> AuctionManager.create_auction(user_id)
-    |> case do
-      {:ok, auction_item} = res ->
-        # broadcast_from(socket, "item_added", auction_item)
-
-        UserInAuction.add_user_to_auction(auction_item.id, user_id, false)
-
-        {:reply, res, socket}
-
-      {:error, _} = error ->
-        {:reply, error, socket}
-    end
+  def handle_in("join_bidding", _payload, socket) do
+    {:noreply, socket}
   end
 
-  def handle_in("get_auction_items", params, socket) do
-    items = AuctionItemContext.get_auction_items(params)
-
-    {:reply, {:ok, items}, socket}
-  end
-
-  def handle_in("get_auction_categories", _payload, socket) do
-    {:reply, {:ok, AuctionItemCategory.get_categories()}, socket}
-  end
-
-  def handle_in("delete_auction", %{"item_id" => item_id}, socket) do
-    item_id
-    |> AuctionManager.remove_auction(get_user_id(socket))
-    |> case do
-      {:ok, _deleted_item} ->
-        {:reply, :ok, socket}
-
-      {:error, reason} = error when reason in [:forbidden, :not_found, :user_not_found] ->
-        {:reply, error, socket}
-    end
+  def handle_in("leave_bidding", _payload, socket) do
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_info({:item_added, %AuctionItem{} = auction_item}, socket) do
-    if user_interested_in_auction_item?(socket, auction_item) do
-      push(socket, "item_added", auction_item)
-    end
-
-    {:noreply, socket}
-  end
-
-  def handle_info({:item_removed, %AuctionItem{} = auction_item}, socket) do
-    if user_interested_in_auction_item?(socket, auction_item) do
-      push(socket, "item_removed", auction_item)
-    end
-
-    {:noreply, socket}
-  end
-
   def handle_info({:bidding_started, %AuctionItem{} = auction_item}, socket) do
     Logger.debug("[PES]: Catched bidding started")
 
@@ -104,7 +56,7 @@ defmodule BiddingPocWeb.AuctionChannel do
   def handle_info(:after_join, socket) do
     {:ok, _} = Presence.track(socket, socket.assigns.user.id, %{})
 
-    AuctionPublisher.subscribe_auctions_lobby()
+    AuctionPublisher.subscribe_auctions_topic()
 
     {:noreply, socket}
   end
