@@ -30,3 +30,6 @@ bidding_poc-*.tar
 
 # Ignore mnesia
 /Mnesia*
+
+# Ignore local config
+/config/.local.exs

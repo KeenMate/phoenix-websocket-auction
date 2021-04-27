@@ -6,6 +6,7 @@ defmodule BiddingPocWeb.BiddingChannel do
   alias BiddingPoc.Database.{AuctionItem, UserInAuction, ItemBid}
   alias BiddingPoc.AuctionManager
   alias BiddingPoc.AuctionPublisher
+  alias BiddingPoc.UserStoreAgent
   alias BiddingPocWeb.Presence
 
   @impl true
@@ -14,7 +15,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     |> Integer.parse()
     |> case do
       :error ->
-        {:error, %{reason: "invalid item_id"}}
+        {:error, :invalid_item_id}
 
       {parsed_item_id, _} ->
         parsed_item_id
@@ -27,11 +28,11 @@ defmodule BiddingPocWeb.BiddingChannel do
           {
             :ok,
             socket_with_item_id
-            |> put_user_joined(user_joined?(socket_with_item_id))
+            |> put_user_status(get_user_status(socket_with_item_id))
           }
         else
           # %{reason: "invalid item_id"}
-          {:error, :invalid_item_id}
+          {:error, :not_found}
         end
     end
   end
@@ -45,8 +46,8 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     new_socket =
       socket
-      |> put_user_joined(true)
-      |> update_presence_user_joined()
+      |> put_user_status(:joined)
+      |> update_presence_user_status()
 
     {:reply, :ok, new_socket}
   end
@@ -56,13 +57,53 @@ defmodule BiddingPocWeb.BiddingChannel do
     user_id = get_user_id(socket)
 
     UserInAuction.remove_user_from_auction(item_id, user_id)
+    |> case do
+      {:error, :not_found} = error ->
+        {:reply, error, socket}
 
-    new_socket =
-      socket
-      |> put_user_joined(false)
-      |> update_presence_user_joined()
+      {:error, :already_bidded} = error ->
+        {:reply, error, socket}
 
-    {:reply, :ok, new_socket}
+      {:ok, :removed} = result ->
+        new_socket =
+          socket
+          |> put_user_status(:nothing)
+          |> update_presence_user_status()
+
+        {:reply, result, new_socket}
+
+      {:ok, :bidding_left} = result ->
+        new_socket =
+          socket
+          |> put_user_status(:watching)
+          |> update_presence_user_status()
+
+        {:reply, result, new_socket}
+    end
+  end
+
+  def handle_in("toggle_watch", _payload, socket) do
+    UserInAuction.toggle_watched_auction(get_item_id(socket), get_user_id(socket))
+    |> case do
+      {:error, :joined} = error ->
+        {:reply, error, socket}
+
+      {:ok, :watching} = res ->
+        new_socket =
+          socket
+          |> put_user_status(:watching)
+          |> update_presence_user_status()
+
+        {:reply, res, new_socket}
+
+      {:ok, :not_watching} = res ->
+        new_socket =
+          socket
+          |> put_user_status(:nothing)
+          |> update_presence_user_status()
+
+        {:reply, res, new_socket}
+    end
   end
 
   def handle_in("place_bid", %{"amount" => amount}, socket) when is_number(amount) do
@@ -81,27 +122,50 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   @impl true
   def handle_info({:bid_placed, item_bid}, socket) do
-    push(socket, "bid_placed", item_bid)
+    push(socket, "bid_placed", Map.from_struct(item_bid))
 
     {:noreply, socket}
   end
 
   def handle_info(:after_join, socket) do
-    setup_presence(socket)
+    user_id = get_user_id(socket)
+    item_id = get_item_id(socket)
+
+    new_socket =
+      case UserInAuction.get_user_status(item_id, user_id) do
+        {:error, :not_found} ->
+          assign(socket, :user_status, "nothing")
+
+        {:ok, :watching} ->
+          assign(socket, :user_status, "watching")
+
+        {:ok, :joined} ->
+          assign(socket, :user_status, "joined")
+      end
+
+    setup_presence(new_socket)
 
     # send init data to client
-    socket
+    new_socket
     |> push_auction_item()
     |> push_auction_item_biddings()
     |> subscribe_to_auction_item_pubsub()
 
-    {:noreply, socket}
+    UserStoreAgent.set_current_auction(user_id, item_id)
+
+    {:noreply, new_socket}
+  end
+
+  @impl true
+  def terminate({:shutdown, _}, socket) do
+    UserStoreAgent.clear_current_auction(get_user_id(socket))
+    :ok
   end
 
   defp subscribe_to_auction_item_pubsub(socket) do
     socket
     |> get_item_id()
-    |> AuctionPublisher.subscribe_auction_bidding()
+    |> AuctionPublisher.subscribe_auction_item()
 
     socket
   end
@@ -114,7 +178,8 @@ defmodule BiddingPocWeb.BiddingChannel do
     Presence.track(socket, user_id, %{
       id: user_id,
       username: socket.assigns.user.username,
-      user_joined: socket.assigns.user_joined
+      display_name: socket.assigns.user.display_name,
+      user_status: socket.assigns.user_status
     })
   end
 
@@ -126,7 +191,7 @@ defmodule BiddingPocWeb.BiddingChannel do
       {:ok, %AuctionItem{} = item_with_data} ->
         updated_item_with_data =
           item_with_data
-          |> Map.put(:user_joined, user_joined?(socket))
+          |> Map.put(:user_status, get_user_status(socket))
 
         push(socket, "auction_item", Map.from_struct(updated_item_with_data))
 
@@ -160,23 +225,29 @@ defmodule BiddingPocWeb.BiddingChannel do
     Presence.list(socket)
   end
 
-  defp user_joined?(socket) do
-    UserInAuction.user_in_auction?(get_item_id(socket), get_user_id(socket))
+  defp get_user_status(socket) do
+    UserInAuction.get_user_status(get_item_id(socket), get_user_id(socket))
+    |> case do
+      {:ok, status} ->
+        status
+
+      {:error, :not_found} ->
+        :nothing
+    end
   end
 
-  defp update_presence_user_joined(socket) do
-    Presence.update(socket, get_user_id(socket), fn meta ->
-      Logger.debug("Updating meta to: #{socket.assigns.user_joined}")
-
-      meta
-      |> Map.put(:user_joined, socket.assigns.user_joined)
-    end)
+  defp update_presence_user_status(socket) do
+    Presence.update(
+      socket,
+      get_user_id(socket),
+      &Map.put(&1, :user_status, socket.assigns.user_status)
+    )
 
     socket
   end
 
-  defp put_user_joined(socket, value) when is_boolean(value) do
-    assign(socket, :user_joined, value)
+  defp put_user_status(socket, value) when value in [:watching, :joined, :nothing] do
+    assign(socket, :user_status, value)
   end
 
   defp put_item_id(socket, item_id) do

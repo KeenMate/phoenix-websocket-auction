@@ -5,23 +5,31 @@
 	import UserProfileNavButton from "./UserProfileNavButton.svelte"
 	import HamburgerButton from "./HamburgerButton.svelte"
 	import BrandLogo from "./BrandLogo.svelte"
-	import NavigationFlashes from "./NavigationFlashes.svelte"
+	import NavigationNotifications from "./NavigationNotifications.svelte"
 
 	export let user = {}
+
+	let navExpanded = false
 
 	$: hideLoginButton = $location === Urls.Login
 	$: hideRegisterButton = $location === Urls.Register
 
+	function toggleNav() {
+		navExpanded = !navExpanded
+	}
 </script>
 
 <nav class="navbar" role="navigation" aria-label="main navigation">
 	<div class="navbar-brand">
 		<BrandLogo />
-		<HamburgerButton />
+		<HamburgerButton {navExpanded} on:click={toggleNav} />
 	</div>
 
-	<div id="navbarBasicExample" class="navbar-menu">
+	<div id="navbarBasicExample" class="navbar-menu" class:is-active={navExpanded}>
 		<div class="navbar-start">
+			<NavButton link={Urls.MyAuctions}>
+				My auctions
+			</NavButton>
 			<NavButton link={Urls.Auctions}>
 				Auctions
 			</NavButton>
@@ -40,7 +48,7 @@
 		</div>
 
 		<div class="navbar-end">
-			<NavigationFlashes />
+			<NavigationNotifications />
 			<div class="navbar-item">
 				{#if !user}
 					<div class="buttons">
@@ -56,7 +64,7 @@
 						{/if}
 					</div>
 				{:else}
-					<UserProfileNavButton username={user.username} />
+					<UserProfileNavButton displayName={user.display_name} />
 				{/if}
 			</div>
 		</div>

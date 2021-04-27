@@ -44,14 +44,21 @@
 		}
 
 		loading = true
-		updateUser(id, user.username, user.new_password, user.is_admin)
+		updateUser(id, user.username, user.display_name, user.new_password, user.is_admin)
 			.then(result => {
-				toastr.success("User updated!")
 				console.log("Updated user: ", result)
+				toastr.success("User updated!")
 			})
 			.catch(error => {
-				taostr.error("Could not update user!")
 				console.error("Could not update user: ", error)
+				switch (error) {
+					case "forbidden":
+						toastr.error("You are not allowed to change this user")
+						break
+					default:
+						toastr.error("Could not update user!")
+						break
+				}
 			})
 		.finally(() => {
 			loading = false
@@ -69,9 +76,11 @@
 			<div class="actions"></div>
 			<UserDetailForm
 				username={user.username}
+				displayName={user.display_name}
 				newPassword={user.new_password || ""}
 				isAdmin={user.is_admin}
 				on:username={({detail: d}) => user.username = d}
+				on:displayName={({detail: d}) => user.display_name = d}
 				on:newPassword={({detail: d}) => user.new_password = d}
 				on:isAdmin={({detail: d}) => user.is_admin = d}
 				on:submit={onSubmit}

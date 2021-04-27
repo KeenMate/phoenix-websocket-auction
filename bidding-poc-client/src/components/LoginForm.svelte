@@ -34,11 +34,15 @@
 		label="Password"
 		isPassword
 	/>
-	<div class="is-pulled-right">
-		<p class="mb-2">
-			Dont have an account? Register <a href="#{Urls.Register}">here</a>
-		</p>
+	<div class="level">
+		<div class="level-left"></div>
+		<div class="level-right is-block">
+			<p class="mb-2">
+				Dont have an account? Register <a href="#{Urls.Register}">here</a>
+			</p>
+			<br>
 
-		<button class="button is-pulled-right" type="submit">Login</button>
+			<button class="button is-pulled-right" type="submit">Login</button>
+		</div>
 	</div>
 </form>

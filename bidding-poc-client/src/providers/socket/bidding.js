@@ -27,12 +27,15 @@ export function initBiddingChannel(socket, itemId, listeners = {}) {
 	})
 
 	// Regular messages
-	channel.on("bid_placed", ctx => {
-		eventBus.emit("bid_placed", null, ctx)
+	channel.on("bid_placed", msg => {
+		eventBus.emit("bid_placed", null, {itemId, msg})
 	})
 	// User is now part of bidding
-	channel.on("user_joined", ctx => {
-		eventBus.emit("user_joined", null, ctx)
+	channel.on("user_joined", msg => {
+		eventBus.emit("user_joined", null, {itemId, msg})
+	})
+	channel.on("bidding_started", () => {
+		eventBus.emit("bidding_started", null, itemId)
 	})
 
 	return new Promise((resolve, reject) => {
@@ -57,6 +60,10 @@ export function joinBidding(channel) {
 
 export function leaveBidding(channel) {
 	return pushSocketMessage(channel, "leave_bidding")
+}
+
+export async function toggleWatch(channel) {
+	return pushSocketMessage(channel, "toggle_watch", {})
 }
 
 export function placeBid(channel, amount) {

@@ -31,15 +31,14 @@ defmodule BiddingPoc.AuctionItemServer do
     }
   end
 
-  @spec place_bid(pos_integer(), pos_integer(), pos_integer()) :: :ok
+  @spec place_bid(pos_integer(), pos_integer() | atom(), pos_integer()) :: :ok
   def place_bid(item_id, user_id, amount)
-      when is_number(item_id) and is_number(user_id) and is_number(amount) do
+      when is_number(item_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
     GenServer.cast(via_tuple(item_id), {:place_bid, user_id, amount})
   end
 
   @impl true
-  def handle_cast({:place_bid, user_id, amount}, %{item_id: item_id} = state)
-      when is_number(user_id) and is_number(amount) do
+  def handle_cast({:place_bid, user_id, amount}, %{item_id: item_id} = state) do
     new_state =
       AuctionItem.place_bid(item_id, user_id, amount)
       |> case do
@@ -67,9 +66,15 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   @impl true
-  def handle_info(:bidding_started, %{item_id: item_id} = state) do
-    AuctionPublisher.broadcast_bidding_started(item_id)
+  def handle_info(:bidding_started, %{item: item} = state) do
+    place_bid(item.id, :initial_bid, item.start_price)
+    AuctionPublisher.broadcast_bidding_started(item)
 
+    {:noreply, state}
+  end
+
+  def handle_info(:bidding_ended, %{item: item} = state) do
+    AuctionPublisher.broadcast_bidding_ended(item)
     {:noreply, state}
   end
 
@@ -79,7 +84,7 @@ defmodule BiddingPoc.AuctionItemServer do
     |> case do
       {:ok, item} ->
         item
-        |> register_bidding_started()
+        |> register_bidding_started(initialy_started)
         |> register_bidding_ended()
         |> broadcast_item_added(initialy_started)
 
@@ -104,9 +109,8 @@ defmodule BiddingPoc.AuctionItemServer do
 
     [enhanced_bid] = ItemBid.with_data([item_bid])
 
-    state
-    |> broadcast_bid_placed(enhanced_bid)
-    |> update_average_bidding(item_bid)
+    broadcast_bid_placed(enhanced_bid)
+    update_average_bidding(state, item_bid)
 
     # TODO: Broadcast avarage bidding to yet to be created channel for "my auctions"
     |> broadcast_bid_average_changed()
@@ -130,12 +134,18 @@ defmodule BiddingPoc.AuctionItemServer do
     |> Map.put(:bids_average, tmp_state.bids_sum / tmp_state.bids_count)
   end
 
-  defp register_bidding_started(%AuctionItem{} = item) do
+  defp register_bidding_started(%AuctionItem{} = item, initialy_started) do
     now = DateTime.now!(Common.timezone())
     start = item.bidding_start
 
-    if DateTime.compare(start, now) == :gt do
-      :erlang.send_after(DateTime.diff(start, now, :second) * 1000, self(), :bidding_started)
+    cond do
+      DateTime.compare(start, now) == :gt ->
+        :erlang.send_after(DateTime.diff(start, now, :millisecond), self(), :bidding_started)
+
+      initialy_started ->
+        send(self(), :bidding_started)
+
+      true -> nil
     end
 
     item
@@ -146,7 +156,7 @@ defmodule BiddingPoc.AuctionItemServer do
     ended = item.bidding_end
 
     if DateTime.compare(ended, now) == :gt do
-      :erlang.send_after(DateTime.diff(ended, now, :second) * 1000, self(), :bidding_ended)
+      :erlang.send_after(DateTime.diff(ended, now, :millisecond), self(), :bidding_ended)
     end
 
     item
@@ -158,10 +168,8 @@ defmodule BiddingPoc.AuctionItemServer do
     state
   end
 
-  defp broadcast_bid_placed(state, item_bid) do
+  defp broadcast_bid_placed(item_bid) do
     AuctionPublisher.broadcast_bid_placed(item_bid)
-
-    state
   end
 
   defp broadcast_item_added(_, false), do: :ok

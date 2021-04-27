@@ -1,24 +1,25 @@
 <script>
-	import {getUserProfileUrl} from "../../routes"
+	import UserLink from "./UserLink.svelte"
 
 	export let users = []
 
-	$: involvedUsers = users && users.filter(x => userJoined(x)) || []
+	$: biddingUsers = users && users.filter(x => userJoined(x)) || []
 	$: watchingUsers = users && users.filter(x => !userJoined(x)) || []
 
-	function userJoined(user) { return user.user_joined }
+	function userJoined(user) {
+		return user.user_status === "joined"
+	}
 </script>
 
+<!--{@debug users}-->
 <aside class="menu">
 	<p class="menu-label">
-		Involved users ({involvedUsers.length})
+		Bidding users ({biddingUsers.length})
 	</p>
 	<ul class="menu-list">
-		{#each involvedUsers as user}
+		{#each biddingUsers as user}
 			<li>
-				<a href="#{getUserProfileUrl(user.id)}">
-					{user.username}
-				</a>
+				<UserLink {user} />
 			</li>
 		{/each}
 	</ul>
@@ -28,9 +29,7 @@
 	<ul class="menu-list">
 		{#each watchingUsers as user}
 			<li>
-				<a href="#{getUserProfileUrl(user.id)}">
-					{user.username}
-				</a>
+				<UserLink {user} />
 			</li>
 		{/each}
 	</ul>

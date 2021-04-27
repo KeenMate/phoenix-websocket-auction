@@ -7,12 +7,13 @@ defdatabase BiddingPoc.Database do
   deftable(AuctionItem)
   deftable(ItemBid)
 
-  deftable User, [{:id, autoincrement}, :username, :password, :is_admin],
+  deftable User, [{:id, autoincrement}, :username, :display_name, :password, :is_admin],
     type: :set,
     index: [:username] do
     @type t() :: %User{
             id: pos_integer() | nil,
             username: String.t(),
+            display_name: String.t(),
             password: String.t(),
             is_admin: boolean()
           }
@@ -21,8 +22,8 @@ defdatabase BiddingPoc.Database do
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__, except: [:password])
 
-    @spec create_user(binary(), binary()) :: {:ok, t()} | {:error, :exists}
-    def create_user(username, password) do
+    @spec create_user(binary(), binary(), binary()) :: {:ok, t()} | {:error, :exists}
+    def create_user(username, display_name, password, is_admin \\ false) do
       Amnesia.transaction do
         username
         |> get_by_username()
@@ -32,7 +33,7 @@ defdatabase BiddingPoc.Database do
 
           {:error, :not_found} ->
             result =
-              to_new_user(username, password)
+              to_user(username, display_name, password, is_admin)
               |> write()
 
             Logger.debug("User: #{username} was created")
@@ -42,9 +43,9 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec update_user(number(), binary(), binary(), boolean()) ::
+    @spec update_user(pos_integer(), binary(), binary(), binary(), boolean()) ::
             {:ok, t()} | {:error, :not_found}
-    def update_user(user_id, username, password, is_admin)
+    def update_user(user_id, username, display_name, password, is_admin)
         when is_number(user_id) and is_binary(username) and is_binary(password) and
                is_boolean(is_admin) do
       Amnesia.transaction do
@@ -57,7 +58,12 @@ defdatabase BiddingPoc.Database do
           {:ok, %User{} = current_user} ->
             updated_user =
               current_user
-              |> Map.merge(%{username: username, password: password, is_admin: is_admin})
+              |> Map.merge(%{
+                username: username,
+                display_name: display_name,
+                password: password,
+                is_admin: is_admin
+              })
               |> write()
 
             {:ok, updated_user}
@@ -80,7 +86,7 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_by_id(number() | :system) :: {:ok, t()} | {:error, :not_found}
+    @spec get_by_id(pos_integer() | atom()) :: {:ok, t()} | {:error, :not_found}
     @doc """
     Returns user with given ID without its password
     """
@@ -97,11 +103,23 @@ defdatabase BiddingPoc.Database do
       end
     end
 
+    def get_by_id(:initial_bid) do
+      {
+        :ok,
+        %User{
+          display_name: "Initial bid",
+          username: "initial_bid",
+          is_admin: false
+        }
+      }
+    end
+
     def get_by_id(:system) do
       {
         :ok,
         %User{
-          username: "System",
+          display_name: "System",
+          username: "system",
           is_admin: true
         }
       }
@@ -183,8 +201,15 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    def from_params(%{"username" => username, "password" => password}) do
-      to_new_user(username, password)
+    def from_params(params) do
+      %{
+        "username" => username,
+        "display_name" => display_name,
+        "password" => password,
+        "is_admin" => is_admin
+      } = params
+
+      to_user(Map.get(params, "id"), username, display_name, password, is_admin)
     end
 
     defp delete_user_biddings(user_id) do
@@ -220,16 +245,24 @@ defdatabase BiddingPoc.Database do
       user_id
     end
 
-    defp to_new_user(username, password) do
+    defp to_user(id \\ nil, username, display_name, password, is_admin) do
       %User{
+        id: id,
         username: username,
+        display_name: display_name,
         password: password,
-        is_admin: false
+        is_admin: is_admin
       }
     end
 
-    defp parse_tuple({mod, id, username, password, is_admin}) do
-      struct!(mod, id: id, username: username, password: password, is_admin: is_admin)
+    defp parse_tuple({mod, id, username, display_name, password, is_admin}) do
+      struct!(mod,
+        id: id,
+        username: username,
+        display_name: display_name,
+        password: password,
+        is_admin: is_admin
+      )
     end
   end
 
@@ -301,8 +334,8 @@ defdatabase BiddingPoc.Database do
     @spec category_watched_by_user?(pos_integer(), pos_integer()) :: boolean()
     def category_watched_by_user?(category_id, user_id) do
       Amnesia.transaction do
-        match(user_id: user_id, category_id: category_id)
-        |> Map.get(:values)
+        match(category_id: category_id, user_id: user_id)
+        |> Amnesia.Selection.values()
         |> Enum.any?()
       end
     end
@@ -452,25 +485,34 @@ defdatabase BiddingPoc.Database do
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
-    @spec write_item(t()) :: {:ok, t()} | {:error, :id_filled}
+    @spec create_auction(t()) :: {:ok, t()} | {:error, :id_filled | :title_used}
     @doc """
     Writes auction item in transaction
     """
-    def write_item(%AuctionItem{id: nil} = item, user_id) when is_number(user_id) do
+    def create_auction(%AuctionItem{id: nil, title: title} = item, user_id)
+        when is_number(user_id) do
       Amnesia.transaction do
-        result =
-          item
-          |> Map.put(:user_id, user_id)
-          |> Map.put(:inserted_at, DateTime.now!(Common.timezone()))
-          |> write()
+        match(title: title)
+        |> Amnesia.Selection.values()
+        |> case do
+          [] ->
+            result =
+              item
+              |> Map.put(:user_id, user_id)
+              |> Map.put(:inserted_at, DateTime.now!(Common.timezone()))
+              |> write()
 
-        Logger.debug("Auction item: #{item.title} created by user: #{user_id}")
+            Logger.debug("Auction item: #{item.title} created by user: #{user_id}")
 
-        {:ok, result}
+            {:ok, result}
+
+          _ ->
+            {:error, :title_used}
+        end
       end
     end
 
-    def write_item(%AuctionItem{id: id}) when is_number(id) do
+    def create_auction(%AuctionItem{id: id}) when is_number(id) do
       {:error, :id_filled}
     end
 
@@ -577,11 +619,11 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec place_bid(pos_integer(), pos_integer(), pos_integer()) ::
+    @spec place_bid(pos_integer(), pos_integer() | atom(), pos_integer()) ::
             {:ok, ItemBid.t()}
             | {:error, :not_found | :small_bid | :bidding_ended | :item_postponed}
     def place_bid(item_id, user_id, amount)
-        when is_number(item_id) and is_number(user_id) and is_number(amount) do
+        when is_number(item_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
       Amnesia.transaction do
         item = read(item_id)
 
@@ -609,34 +651,50 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec delete_item(number) :: :ok
+    @spec delete_item(number) :: {:ok, t()} | {:error, :not_found}
     def delete_item(item_id) when is_number(item_id) do
       Amnesia.transaction do
-        delete(item_id)
+        existing = read(item_id)
 
-        :ok
+        if existing == nil do
+          {:error, :not_found}
+        else
+          delete(item_id)
+          {:ok, existing}
+        end
       end
     end
 
+    @spec user_id_authorized?(pos_integer(), pos_integer()) ::
+            boolean() | {:error, :not_found | :user_not_found}
     def user_id_authorized?(item_id, user_id) when is_number(item_id) and is_number(user_id) do
       Amnesia.transaction do
         user_owner? =
           item_id
-          |> read()
-          |> Map.get(:user_id) == user_id
-
-        if user_owner? do
-          true
-        else
-          user_id
-          |> User.get_by_id()
+          |> get_by_id()
           |> case do
-            {:ok, %User{is_admin: is_admin}} ->
-              is_admin
-
-            {:error, :not_found} ->
-              false
+            {:ok, %{user_id: ^user_id}} -> {:ok, true}
+            {:ok, _} -> {:ok, false}
+            {:error, :not_found} = error -> error
           end
+
+        case user_owner? do
+          {:ok, true} ->
+            true
+
+          {:ok, false} ->
+            user_id
+            |> User.get_by_id()
+            |> case do
+              {:ok, %User{is_admin: is_admin}} ->
+                is_admin
+
+              {:error, :not_found} ->
+                {:error, :user_not_found}
+            end
+
+          {:error, :not_found} = error ->
+            error
         end
       end
     end
@@ -712,9 +770,18 @@ defdatabase BiddingPoc.Database do
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
+    @spec get_user_bids(pos_integer()) :: [t()]
     def get_user_bids(user_id) when is_number(user_id) do
       Amnesia.transaction do
         match(user_id: user_id)
+        |> Amnesia.Selection.values()
+      end
+    end
+
+    @spec get_user_auction_bids(pos_integer(), pos_integer()) :: [t()]
+    def get_user_auction_bids(item_id, user_id) when is_number(user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
         |> Amnesia.Selection.values()
       end
     end
@@ -734,7 +801,7 @@ defdatabase BiddingPoc.Database do
           with {:user, {:ok, user}} <- {:user, get_user_from_bid(bid)} do
             updated_bid =
               bid
-              |> Map.put(:username, user.username)
+              |> Map.put(:user_display_name, user.display_name)
 
             updated_bid
           else
@@ -785,7 +852,8 @@ defdatabase BiddingPoc.Database do
     end
   end
 
-  deftable UserInAuction, [{:id, autoincrement}, :user_id, :item_id], index: [:user_id, :item_id] do
+  deftable UserInAuction, [{:id, autoincrement}, :user_id, :item_id, :joined],
+    index: [:user_id, :item_id] do
     @moduledoc """
     This table holds informations on users joined in auctions
     """
@@ -793,14 +861,15 @@ defdatabase BiddingPoc.Database do
     @type t() :: %UserInAuction{
             id: pos_integer() | nil,
             user_id: pos_integer(),
-            item_id: pos_integer()
+            item_id: pos_integer(),
+            joined: boolean()
           }
 
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
     @spec add_user_to_auction(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :exists}
-    def add_user_to_auction(item_id, user_id)
+    def add_user_to_auction(item_id, user_id, join \\ true)
         when is_number(user_id) and is_number(item_id) do
       Amnesia.transaction do
         match(user_id: user_id, item_id: item_id)
@@ -808,18 +877,27 @@ defdatabase BiddingPoc.Database do
         |> case do
           [] ->
             result =
-              new_user_in_auction(user_id, item_id)
+              new_user_in_auction(user_id, item_id, join)
               |> write()
 
             {:ok, result}
 
-          x when is_list(x) ->
-            {:error, :exists}
+          [%{joined: ^join} = found] ->
+            {:ok, found}
+
+          [found] ->
+            updated =
+              found
+              |> Map.put(:joined, join)
+              |> write()
+
+            {:ok, updated}
         end
       end
     end
 
-    @spec remove_user_from_auction(pos_integer(), pos_integer()) :: :ok | {:error, :not_found}
+    @spec remove_user_from_auction(pos_integer(), pos_integer()) ::
+            {:ok, :removed | :bidding_left} | {:error, :not_found | :already_bidded}
     def remove_user_from_auction(item_id, user_id)
         when is_number(item_id) and is_number(user_id) do
       Amnesia.transaction do
@@ -829,9 +907,43 @@ defdatabase BiddingPoc.Database do
           [] ->
             {:error, :not_found}
 
-          [user_in_auction] ->
-            delete(user_in_auction.id)
-            :ok
+          [%{id: id, joined: false}] ->
+            delete(id)
+            {:ok, :removed}
+
+          [%{joined: true} = x] ->
+            case ItemBid.get_user_auction_bids(item_id, user_id) do
+              [] ->
+                x
+                |> Map.put(:joined, false)
+                |> write()
+
+                {:ok, :bidding_left}
+
+              _ ->
+                {:error, :already_bidded}
+            end
+        end
+      end
+    end
+
+    @spec toggle_watched_auction(pos_integer(), pos_integer()) ::
+            {:ok, :watching | :not_watching} | {:error, :joined}
+    def toggle_watched_auction(item_id, user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
+        |> Amnesia.Selection.values()
+        |> case do
+          [] ->
+            {:ok, _} = add_user_to_auction(item_id, user_id, false)
+            {:ok, :watching}
+
+          [%{id: id, joined: false}] ->
+            delete(id)
+            {:ok, :not_watching}
+
+          [%{joined: true}] ->
+            {:error, :joined}
         end
       end
     end
@@ -845,8 +957,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_users_for_auction(pos_integer()) :: [{:ok, User.t()} | {:error, :not_found}]
-    def get_users_for_auction(item_id) when is_number(item_id) do
+    @spec get_auction_users(pos_integer()) :: [{:ok, User.t()} | {:error, :not_found}]
+    def get_auction_users(item_id) when is_number(item_id) do
       Amnesia.transaction do
         match(item_id: item_id)
         |> Amnesia.Selection.values()
@@ -854,18 +966,38 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_auctions_for_user(pos_integer()) :: [t()]
-    def get_auctions_for_user(user_id) when is_number(user_id) do
+    @spec get_user_auctions(pos_integer()) :: [t()]
+    def get_user_auctions(user_id) when is_number(user_id) do
       Amnesia.transaction do
         match(user_id: user_id)
         |> Amnesia.Selection.values()
       end
     end
 
-    defp new_user_in_auction(user_id, item_id) do
+    @spec get_user_status(pos_integer(), pos_integer()) ::
+            {:ok, :watching | :joined} | {:error, :not_found}
+    def get_user_status(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+      Amnesia.transaction do
+        match(item_id: item_id, user_id: user_id)
+        |> Amnesia.Selection.values()
+        |> case do
+          [] ->
+            {:error, :not_found}
+
+          [%{joined: false}] ->
+            {:ok, :watching}
+
+          [%{joined: true}] ->
+            {:ok, :joined}
+        end
+      end
+    end
+
+    defp new_user_in_auction(user_id, item_id, join) do
       %UserInAuction{
         user_id: user_id,
-        item_id: item_id
+        item_id: item_id,
+        joined: join
       }
     end
   end

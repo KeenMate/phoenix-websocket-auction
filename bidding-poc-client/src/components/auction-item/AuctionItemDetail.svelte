@@ -1,17 +1,29 @@
 <script>
 	import {createEventDispatcher} from "svelte"
 	import m from "moment"
+ 	import {userStore} from "../../providers/auth"
+	import {minuteer} from "../../stores/other"
 	import Card from "../ui/Card.svelte"
-	import TheButton from "../ui/TheButton.svelte"
-	
+	import AuctionControls from "./AuctionControls.svelte"
+
 	const dispatch = createEventDispatcher()
+
 	export let title = ""
+	export let user_id = null
 	export let category_id = 0
 	export let category = ""
 	export let description = ""
 	export let inserted_at = null
 	export let bidding_start = null
 	export let bidding_end = null
+	export let user_status = "nothing"
+
+	$: biddingStartMoment = bidding_start && m(bidding_start)
+	$: biddingStartedRelative = $minuteer && biddingStartMoment && biddingStartMoment.fromNow()
+	$: biddingEndMoment = bidding_end && m(bidding_end)
+	$: biddingEndedRelative = $minuteer && biddingEndMoment && biddingEndMoment.fromNow()
+
+	$: isAuthor = $userStore && $userStore.id === user_id
 
 	function formatDateTime(val) {
 		if (!val)
@@ -31,11 +43,11 @@
 			? "Invalid date"
 			: date.toISOString().substr(0, 10)
 	}
-	
+
 	function onDeleteClick() {
 		if (!confirm("Do you really want to delete this auction?"))
 			return
-		
+
 		dispatch("deleteAuction")
 	}
 </script>
@@ -56,10 +68,13 @@
 						{/if}
 					</div>
 					<div class="level-right">
-						<TheButton isDanger on:click={onDeleteClick}>
-							Delete
-						</TheButton>
-						<!-- todo: Render `edit` button if user_id is same as owner id -->
+						{#if isAuthor}
+							<AuctionControls
+								{user_status}
+								on:toggleWatch
+								on:delete={onDeleteClick}
+							/>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -69,12 +84,12 @@
 	<div class="content">
 		{#if bidding_start}
 			<b>Bidding start: </b>
-			{m(bidding_start).calendar()} <i>({m(bidding_start).fromNow()})</i>
+			{biddingStartMoment.calendar()} <i>({biddingStartedRelative})</i>
 			<br>
 		{/if}
 		{#if bidding_end}
 			<b>Bidding end: </b>
-			{m(bidding_end).calendar()} <i>({m(bidding_end).fromNow()})</i>
+			{biddingEndMoment.calendar()} <i>({biddingEndedRelative})</i>
 			<br>
 		{/if}
 		{#if description}

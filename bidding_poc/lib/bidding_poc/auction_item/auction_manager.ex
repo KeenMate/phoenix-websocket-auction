@@ -7,6 +7,8 @@ defmodule BiddingPoc.AuctionManager do
   alias BiddingPoc.AuctionItemSupervisor
   alias BiddingPoc.AuctionPublisher
 
+  @spec create_auction(map(), pos_integer()) ::
+          {:ok, AuctionItem.t()} | {:error, :id_filled | :title_used}
   def create_auction(params, user_id) do
     params
     |> new_item_from_params!()
@@ -16,9 +18,12 @@ defmodule BiddingPoc.AuctionManager do
         star_auction_item_server(new_item.id, true)
         res
 
-      {:error, :id_filled} ->
+      {:error, :id_filled} = error ->
         Logger.error("Auction item id was filled")
-        :error
+        error
+
+      {:error, :title_used} = error ->
+        error
     end
   end
 
@@ -33,19 +38,34 @@ defmodule BiddingPoc.AuctionManager do
     }
   end
 
-  def remove_auction(socket, item_id, user_id) do
-    if AuctionItem.user_id_authorized?(item_id, user_id) do
-      :ok = AuctionItem.delete_item(item_id)
+  @spec remove_auction(pos_integer(), pos_integer()) ::
+          {:error, :forbidden | :not_found | :user_not_found} | {:ok, AuctionItem.t()}
+  def remove_auction(item_id, user_id) do
+    item_id
+    |> AuctionItem.user_id_authorized?(user_id)
+    |> case do
+      true ->
+        item_id
+        |> AuctionItem.delete_item()
+        |> case do
+          {:ok, deleted} = res ->
+            AuctionPublisher.broadcast_item_removed(deleted)
+            res
 
-      AuctionPublisher.broadcast_item_removed(socket, item_id)
+          {:error, :not_found} = error ->
+            Logger.warn("Attempted to remove nonexisting auction item", item_id: inspect(item_id))
+            error
+        end
 
-      :ok
-    else
-      {:error, :forbidden}
+      false ->
+        {:error, :forbidden}
+
+      {:error, _} = error ->
+        error
     end
   end
 
-  @spec place_bid(pos_integer(), pos_integer(), pos_integer()) ::
+  @spec place_bid(pos_integer(), pos_integer() | :system, pos_integer()) ::
           :ok | {:error, :process_not_alive}
   def place_bid(item_id, user_id, amount) do
     if auction_item_server_alive?(item_id) do

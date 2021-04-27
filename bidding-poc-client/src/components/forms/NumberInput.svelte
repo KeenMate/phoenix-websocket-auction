@@ -29,6 +29,8 @@
 						type="number"
 						{value}
 						{required}
+						on:focus
+						on:blur
 						on:input={onInput}
 					>
 				</div>
