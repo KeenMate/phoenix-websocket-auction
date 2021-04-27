@@ -40,7 +40,7 @@ defmodule BiddingPoc.AuctionPublisher do
   def broadcast_bid_placed(item_bid) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auction_item_topic(item_bid.item_id),
+      auction_item_topic(item_bid.auction_id),
       {:bid_placed, item_bid}
     )
   end
@@ -53,8 +53,8 @@ defmodule BiddingPoc.AuctionPublisher do
     )
   end
 
-  def subscribe_auction_item(item_id) do
-    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, "auction_item:#{item_id}")
+  def subscribe_auction_item(auction_id) do
+    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, "auction_item:#{auction_id}")
   end
 
   def subscribe_auctions_topic() do

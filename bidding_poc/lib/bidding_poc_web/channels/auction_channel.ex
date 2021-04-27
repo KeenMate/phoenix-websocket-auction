@@ -11,7 +11,7 @@ defmodule BiddingPocWeb.AuctionChannel do
   alias BiddingPocWeb.Presence
 
   @impl true
-  def join("auction:" <> item_id, _payload, socket) do
+  def join("auction:" <> auction_id, _payload, socket) do
     send(self(), :after_join)
 
     {

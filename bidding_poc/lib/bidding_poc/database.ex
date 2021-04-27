@@ -553,9 +553,9 @@ defdatabase BiddingPoc.Database do
     @doc """
     Reads auction item in transaction
     """
-    def get_by_id(item_id) when is_number(item_id) do
+    def get_by_id(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
-        read(item_id)
+        read(auction_id)
       end
       |> case do
         nil -> {:error, :not_found}
@@ -565,9 +565,9 @@ defdatabase BiddingPoc.Database do
 
     @spec with_data(pos_integer()) ::
             {:ok, t()} | {:error, :item_not_found | :user_not_found | :category_not_found}
-    def with_data(item_id) when is_number(item_id) do
+    def with_data(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
-        with {:item, {:ok, item}} <- {:item, get_by_id(item_id)},
+        with {:item, {:ok, item}} <- {:item, get_by_id(auction_id)},
              {:user, {:ok, user}} <- {:user, User.get_by_id(item.user_id)},
              {:category, {:ok, category}} <-
                {:category, AuctionItemCategory.get_by_id(item.category_id)} do
@@ -622,10 +622,10 @@ defdatabase BiddingPoc.Database do
     @spec place_bid(pos_integer(), pos_integer() | atom(), pos_integer()) ::
             {:ok, ItemBid.t()}
             | {:error, :not_found | :small_bid | :bidding_ended | :item_postponed}
-    def place_bid(item_id, user_id, amount)
-        when is_number(item_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
+    def place_bid(auction_id, user_id, amount)
+        when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
       Amnesia.transaction do
-        item = read(item_id)
+        item = read(auction_id)
 
         if item == nil do
           {:error, :not_found}
@@ -634,7 +634,7 @@ defdatabase BiddingPoc.Database do
             {:ok, :ongoing} ->
               case try_add_bid(item.id, user_id, amount) do
                 {:ok, _} = res ->
-                  Logger.debug("Bid placed for item: #{item_id} by user: #{user_id}")
+                  Logger.debug("Bid placed for item: #{auction_id} by user: #{user_id}")
                   res
 
                 {:error, :small_bid} = error ->
@@ -652,14 +652,14 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec delete_item(number) :: {:ok, t()} | {:error, :not_found}
-    def delete_item(item_id) when is_number(item_id) do
+    def delete_item(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
-        existing = read(item_id)
+        existing = read(auction_id)
 
         if existing == nil do
           {:error, :not_found}
         else
-          delete(item_id)
+          delete(auction_id)
           {:ok, existing}
         end
       end
@@ -667,10 +667,10 @@ defdatabase BiddingPoc.Database do
 
     @spec user_id_authorized?(pos_integer(), pos_integer()) ::
             boolean() | {:error, :not_found | :user_not_found}
-    def user_id_authorized?(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+    def user_id_authorized?(auction_id, user_id) when is_number(auction_id) and is_number(user_id) do
       Amnesia.transaction do
         user_owner? =
-          item_id
+          auction_id
           |> get_by_id()
           |> case do
             {:ok, %{user_id: ^user_id}} -> {:ok, true}
@@ -715,10 +715,10 @@ defdatabase BiddingPoc.Database do
       }
     end
 
-    defp try_add_bid(item_id, user_id, amount) do
-      if ItemBid.is_amount_highest?(item_id, amount) do
+    defp try_add_bid(auction_id, user_id, amount) do
+      if ItemBid.is_amount_highest?(auction_id, amount) do
         new_bind =
-          ItemBid.new_bid(item_id, user_id, amount)
+          ItemBid.new_bid(auction_id, user_id, amount)
           |> ItemBid.write()
 
         {:ok, new_bind}
@@ -751,16 +751,16 @@ defdatabase BiddingPoc.Database do
 
   deftable(
     ItemBid,
-    [{:id, autoincrement}, :user_id, :item_id, :inserted_at, :amount],
+    [{:id, autoincrement}, :user_id, :auction_id, :inserted_at, :amount],
     type: :ordered_set,
-    index: [:item_id, :amount]
+    index: [:auction_id, :amount]
   ) do
     @type cents() :: pos_integer()
 
     @type t() :: %ItemBid{
             id: pos_integer(),
             user_id: pos_integer(),
-            item_id: pos_integer(),
+            auction_id: pos_integer(),
             inserted_at: DateTime.t(),
             amount: cents()
           }
@@ -779,16 +779,16 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec get_user_auction_bids(pos_integer(), pos_integer()) :: [t()]
-    def get_user_auction_bids(item_id, user_id) when is_number(user_id) do
+    def get_user_auction_bids(auction_id, user_id) when is_number(user_id) do
       Amnesia.transaction do
-        match(item_id: item_id, user_id: user_id)
+        match(auction_id: auction_id, user_id: user_id)
         |> Amnesia.Selection.values()
       end
     end
 
-    def get_item_bids(item_id) when is_number(item_id) do
+    def get_item_bids(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
-        match(item_id: item_id)
+        match(auction_id: auction_id)
         |> Amnesia.Selection.values()
       end
     end
@@ -814,20 +814,20 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec is_amount_highest?(pos_integer(), pos_integer()) :: boolean()
-    def is_amount_highest?(item_id_param, amount_param)
-        when is_number(item_id_param) and is_number(amount_param) do
+    def is_amount_highest?(auction_id_param, amount_param)
+        when is_number(auction_id_param) and is_number(amount_param) do
       Amnesia.transaction do
-        where(item_id == item_id_param and amount >= amount_param)
+        where(auction_id == auction_id_param and amount >= amount_param)
         |> Amnesia.Selection.values()
         |> Enum.empty?()
       end
     end
 
     @spec get_item_highest_bid(pos_integer(), pos_integer()) :: [t()]
-    def get_item_highest_bid(item_id, highest_count \\ 1)
-        when is_number(item_id) and is_number(highest_count) do
+    def get_item_highest_bid(auction_id, highest_count \\ 1)
+        when is_number(auction_id) and is_number(highest_count) do
       Amnesia.transaction do
-        match(item_id: item_id)
+        match(auction_id: auction_id)
         |> Amnesia.Selection.values()
         |> Enum.sort_by(& &1.amount, :desc)
         |> Enum.take(highest_count)
@@ -838,9 +838,9 @@ defdatabase BiddingPoc.Database do
     @doc """
     Returns new struct with given data
     """
-    def new_bid(item_id, user_id, amount) do
+    def new_bid(auction_id, user_id, amount) do
       %ItemBid{
-        item_id: item_id,
+        auction_id: auction_id,
         user_id: user_id,
         amount: amount,
         inserted_at: DateTime.now!(Common.timezone())
@@ -852,8 +852,8 @@ defdatabase BiddingPoc.Database do
     end
   end
 
-  deftable UserInAuction, [{:id, autoincrement}, :user_id, :item_id, :joined],
-    index: [:user_id, :item_id] do
+  deftable UserInAuction, [{:id, autoincrement}, :user_id, :auction_id, :joined],
+    index: [:user_id, :auction_id] do
     @moduledoc """
     This table holds informations on users joined in auctions
     """
@@ -861,7 +861,7 @@ defdatabase BiddingPoc.Database do
     @type t() :: %UserInAuction{
             id: pos_integer() | nil,
             user_id: pos_integer(),
-            item_id: pos_integer(),
+            auction_id: pos_integer(),
             joined: boolean()
           }
 
@@ -869,15 +869,15 @@ defdatabase BiddingPoc.Database do
     Protocol.derive(Jason.Encoder, __MODULE__)
 
     @spec add_user_to_auction(pos_integer(), pos_integer()) :: {:ok, t()} | {:error, :exists}
-    def add_user_to_auction(item_id, user_id, join \\ true)
-        when is_number(user_id) and is_number(item_id) do
+    def add_user_to_auction(auction_id, user_id, join \\ true)
+        when is_number(user_id) and is_number(auction_id) do
       Amnesia.transaction do
-        match(user_id: user_id, item_id: item_id)
+        match(user_id: user_id, auction_id: auction_id)
         |> Amnesia.Selection.values()
         |> case do
           [] ->
             result =
-              new_user_in_auction(user_id, item_id, join)
+              new_user_in_auction(user_id, auction_id, join)
               |> write()
 
             {:ok, result}
@@ -898,10 +898,10 @@ defdatabase BiddingPoc.Database do
 
     @spec remove_user_from_auction(pos_integer(), pos_integer()) ::
             {:ok, :removed | :bidding_left} | {:error, :not_found | :already_bidded}
-    def remove_user_from_auction(item_id, user_id)
-        when is_number(item_id) and is_number(user_id) do
+    def remove_user_from_auction(auction_id, user_id)
+        when is_number(auction_id) and is_number(user_id) do
       Amnesia.transaction do
-        match(item_id: item_id, user_id: user_id)
+        match(auction_id: auction_id, user_id: user_id)
         |> Amnesia.Selection.values()
         |> case do
           [] ->
@@ -912,7 +912,7 @@ defdatabase BiddingPoc.Database do
             {:ok, :removed}
 
           [%{joined: true} = x] ->
-            case ItemBid.get_user_auction_bids(item_id, user_id) do
+            case ItemBid.get_user_auction_bids(auction_id, user_id) do
               [] ->
                 x
                 |> Map.put(:joined, false)
@@ -929,13 +929,13 @@ defdatabase BiddingPoc.Database do
 
     @spec toggle_watched_auction(pos_integer(), pos_integer()) ::
             {:ok, :watching | :not_watching} | {:error, :joined}
-    def toggle_watched_auction(item_id, user_id) do
+    def toggle_watched_auction(auction_id, user_id) do
       Amnesia.transaction do
-        match(item_id: item_id, user_id: user_id)
+        match(auction_id: auction_id, user_id: user_id)
         |> Amnesia.Selection.values()
         |> case do
           [] ->
-            {:ok, _} = add_user_to_auction(item_id, user_id, false)
+            {:ok, _} = add_user_to_auction(auction_id, user_id, false)
             {:ok, :watching}
 
           [%{id: id, joined: false}] ->
@@ -949,18 +949,18 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec user_in_auction?(pos_integer(), pos_integer()) :: boolean()
-    def user_in_auction?(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+    def user_in_auction?(auction_id, user_id) when is_number(auction_id) and is_number(user_id) do
       Amnesia.transaction do
-        match(item_id: item_id, user_id: user_id)
+        match(auction_id: auction_id, user_id: user_id)
         |> Amnesia.Selection.values()
         |> Enum.any?()
       end
     end
 
     @spec get_auction_users(pos_integer()) :: [{:ok, User.t()} | {:error, :not_found}]
-    def get_auction_users(item_id) when is_number(item_id) do
+    def get_auction_users(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
-        match(item_id: item_id)
+        match(auction_id: auction_id)
         |> Amnesia.Selection.values()
         |> Enum.map(&User.get_by_id(&1.user_id))
       end
@@ -976,9 +976,9 @@ defdatabase BiddingPoc.Database do
 
     @spec get_user_status(pos_integer(), pos_integer()) ::
             {:ok, :watching | :joined} | {:error, :not_found}
-    def get_user_status(item_id, user_id) when is_number(item_id) and is_number(user_id) do
+    def get_user_status(auction_id, user_id) when is_number(auction_id) and is_number(user_id) do
       Amnesia.transaction do
-        match(item_id: item_id, user_id: user_id)
+        match(auction_id: auction_id, user_id: user_id)
         |> Amnesia.Selection.values()
         |> case do
           [] ->
@@ -993,10 +993,10 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    defp new_user_in_auction(user_id, item_id, join) do
+    defp new_user_in_auction(user_id, auction_id, join) do
       %UserInAuction{
         user_id: user_id,
-        item_id: item_id,
+        auction_id: auction_id,
         joined: join
       }
     end

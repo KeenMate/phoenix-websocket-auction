@@ -40,12 +40,12 @@ defmodule BiddingPoc.AuctionManager do
 
   @spec remove_auction(pos_integer(), pos_integer()) ::
           {:error, :forbidden | :not_found | :user_not_found} | {:ok, AuctionItem.t()}
-  def remove_auction(item_id, user_id) do
-    item_id
+  def remove_auction(auction_id, user_id) do
+    auction_id
     |> AuctionItem.user_id_authorized?(user_id)
     |> case do
       true ->
-        item_id
+        auction_id
         |> AuctionItem.delete_item()
         |> case do
           {:ok, deleted} = res ->
@@ -53,7 +53,7 @@ defmodule BiddingPoc.AuctionManager do
             res
 
           {:error, :not_found} = error ->
-            Logger.warn("Attempted to remove nonexisting auction item", item_id: inspect(item_id))
+            Logger.warn("Attempted to remove nonexisting auction item", auction_id: inspect(auction_id))
             error
         end
 
@@ -67,31 +67,31 @@ defmodule BiddingPoc.AuctionManager do
 
   @spec place_bid(pos_integer(), pos_integer() | :system, pos_integer()) ::
           :ok | {:error, :process_not_alive}
-  def place_bid(item_id, user_id, amount) do
-    if auction_item_server_alive?(item_id) do
-      AuctionItemServer.place_bid(item_id, user_id, amount)
+  def place_bid(auction_id, user_id, amount) do
+    if auction_item_server_alive?(auction_id) do
+      AuctionItemServer.place_bid(auction_id, user_id, amount)
     else
       # TODO: Maybe call DB function to attempt to store bid
       {:error, :process_not_alive}
     end
   end
 
-  defp auction_item_server_alive?(item_id) do
-    Registry.lookup(Registry.AuctionItemRegistry, item_id)
+  defp auction_item_server_alive?(auction_id) do
+    Registry.lookup(Registry.AuctionItemRegistry, auction_id)
     |> case do
       [] -> false
       [_] -> true
     end
   end
 
-  def star_auction_item_server(item_id, initially_started) do
+  def star_auction_item_server(auction_id, initially_started) do
     DynamicSupervisor.start_child(
       AuctionItemSupervisor,
-      auction_item_server_spec(item_id, initially_started)
+      auction_item_server_spec(auction_id, initially_started)
     )
   end
 
-  def auction_item_server_spec(item_id, initialy_started) do
-    {AuctionItemServer, %{item_id: item_id, initialy_started: initialy_started}}
+  def auction_item_server_spec(auction_id, initialy_started) do
+    {AuctionItemServer, %{auction_id: auction_id, initialy_started: initialy_started}}
   end
 end

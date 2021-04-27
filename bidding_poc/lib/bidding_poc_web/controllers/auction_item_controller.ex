@@ -48,11 +48,11 @@ defmodule BiddingPocWeb.AuctionItemController do
     end
   end
 
-  def show(conn, %{"id" => item_id}) do
-    parsed_item_id = String.to_integer(item_id)
+  def show(conn, %{"id" => auction_id}) do
+    parsed_auction_id = String.to_integer(auction_id)
 
-    with {:ok, item} <- AuctionItem.get_by_id(parsed_item_id),
-         {:ok, biddings} <- ItemBid.get_item_bids(parsed_item_id) do
+    with {:ok, item} <- AuctionItem.get_by_id(parsed_auction_id),
+         {:ok, biddings} <- ItemBid.get_item_bids(parsed_auction_id) do
       conn
       |> put_status(:ok)
       |> json(%{
@@ -72,10 +72,10 @@ defmodule BiddingPocWeb.AuctionItemController do
     end
   end
 
-  def delete(conn, %{"id" => item_id}) do
+  def delete(conn, %{"id" => auction_id}) do
     # TODO: Needs permission check
 
-    item_id
+    auction_id
     |> String.to_integer()
     |> AuctionItem.delete_item()
 

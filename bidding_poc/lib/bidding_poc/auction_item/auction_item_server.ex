@@ -12,11 +12,11 @@ defmodule BiddingPoc.AuctionItemServer do
   alias BiddingPoc.UserPublisher
 
   def start_link(arg) do
-    GenServer.start_link(__MODULE__, arg, name: via_tuple(arg.item_id))
+    GenServer.start_link(__MODULE__, arg, name: via_tuple(arg.auction_id))
   end
 
-  def via_tuple(item_id) do
-    {:via, Registry, {Registry.AuctionItemRegistry, item_id}}
+  def via_tuple(auction_id) do
+    {:via, Registry, {Registry.AuctionItemRegistry, auction_id}}
   end
 
   @impl true
@@ -26,21 +26,21 @@ defmodule BiddingPoc.AuctionItemServer do
     {
       :ok,
       %{
-        item_id: arg.item_id
+        auction_id: arg.auction_id
       }
     }
   end
 
   @spec place_bid(pos_integer(), pos_integer() | atom(), pos_integer()) :: :ok
-  def place_bid(item_id, user_id, amount)
-      when is_number(item_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
-    GenServer.cast(via_tuple(item_id), {:place_bid, user_id, amount})
+  def place_bid(auction_id, user_id, amount)
+      when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
+    GenServer.cast(via_tuple(auction_id), {:place_bid, user_id, amount})
   end
 
   @impl true
-  def handle_cast({:place_bid, user_id, amount}, %{item_id: item_id} = state) do
+  def handle_cast({:place_bid, user_id, amount}, %{auction_id: auction_id} = state) do
     new_state =
-      AuctionItem.place_bid(item_id, user_id, amount)
+      AuctionItem.place_bid(auction_id, user_id, amount)
       |> case do
         {:ok, bid} ->
           after_bid_placed(state, user_id, bid)
@@ -79,7 +79,7 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   def handle_info({:after_init, initialy_started}, state) do
-    state.item_id
+    state.auction_id
     |> AuctionItem.get_by_id()
     |> case do
       {:ok, item} ->
@@ -97,7 +97,7 @@ defmodule BiddingPoc.AuctionItemServer do
       {:error, :not_found} ->
         Logger.error(
           "Attempted to start auction item server with auction item id that was not found in database",
-          item_id: inspect(state.item_id)
+          auction_id: inspect(state.auction_id)
         )
 
         {:stop, {:error, :not_found}, state}

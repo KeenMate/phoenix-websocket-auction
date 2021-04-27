@@ -7,8 +7,8 @@ defmodule BiddingPoc.UserManager do
     DynamicSupervisor.start_child(UserStoreSupervisor, {UserStoreAgent, %{user_id: user_id}})
   end
 
-  def is_auction_currently_viewed?(user_id, item_id) do
-    UserStoreAgent.get_current_auction(user_id) == item_id
+  def is_auction_currently_viewed?(user_id, auction_id) do
+    UserStoreAgent.get_current_auction(user_id) == auction_id
   end
 
   @spec user_store_alive?(pos_integer()) :: boolean()

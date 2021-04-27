@@ -17,10 +17,10 @@ defmodule BiddingPoc.UserStoreAgent do
     |> Agent.get(&Map.get(&1, :current_auction))
   end
 
-  def set_current_auction(user_id, item_id) do
+  def set_current_auction(user_id, auction_id) do
     user_id
     |> via_tuple()
-    |> Agent.update(&Map.put(&1, :current_auction, item_id))
+    |> Agent.update(&Map.put(&1, :current_auction, auction_id))
   end
 
   def clear_current_auction(user_id) do

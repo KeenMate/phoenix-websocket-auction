@@ -21,7 +21,7 @@ defmodule BiddingPoc.AuctionBidderServer do
   @impl true
   def handle_info(:elapsed, state) do
     new_bids =
-      state.item_ids
+      state.auction_ids
       |> Enum.filter(fn _ -> :random.uniform() < @place_bid_chance end)
       |> Enum.reduce(Map.get(state, :bids, %{}), &place_bid(&1, &2, state.user_id, state.name))
 
@@ -38,24 +38,24 @@ defmodule BiddingPoc.AuctionBidderServer do
     {:noreply, state}
   end
 
-  defp place_bid(item_id, bids, user_id, name) do
-    log_debug(name, "Placing bid for #{item_id}")
+  defp place_bid(auction_id, bids, user_id, name) do
+    log_debug(name, "Placing bid for #{auction_id}")
 
-    {new_bid, new_bids} = get_new_bid(item_id, bids)
+    {new_bid, new_bids} = get_new_bid(auction_id, bids)
 
-    BiddingPoc.place_bid(item_id, user_id, new_bid)
+    BiddingPoc.place_bid(auction_id, user_id, new_bid)
     |> case do
       :ok ->
         new_bids
     end
   end
 
-  defp get_new_bid(item_id, bids) do
-    last_bid = Map.get(bids, item_id, 100)
+  defp get_new_bid(auction_id, bids) do
+    last_bid = Map.get(bids, auction_id, 100)
 
     new_bid = trunc(:random.uniform(100) + last_bid)
 
-    {new_bid, Map.put(bids, item_id, new_bid)}
+    {new_bid, Map.put(bids, auction_id, new_bid)}
   end
 
   defp register_elapse_event() do

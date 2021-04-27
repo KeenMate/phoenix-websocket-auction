@@ -10,28 +10,28 @@ defmodule BiddingPocWeb.BiddingChannel do
   alias BiddingPocWeb.Presence
 
   @impl true
-  def join("bidding:" <> item_id, _payload, socket) do
-    item_id
+  def join("bidding:" <> auction_id, _payload, socket) do
+    auction_id
     |> Integer.parse()
     |> case do
       :error ->
-        {:error, :invalid_item_id}
+        {:error, :invalid_auction_id}
 
-      {parsed_item_id, _} ->
-        parsed_item_id
+      {parsed_auction_id, _} ->
+        parsed_auction_id
         |> AuctionItem.member?()
         |> if do
           send(self(), :after_join)
 
-          socket_with_item_id = put_item_id(socket, parsed_item_id)
+          socket_with_auction_id = put_auction_id(socket, parsed_auction_id)
 
           {
             :ok,
-            socket_with_item_id
-            |> put_user_status(get_user_status(socket_with_item_id))
+            socket_with_auction_id
+            |> put_user_status(get_user_status(socket_with_auction_id))
           }
         else
-          # %{reason: "invalid item_id"}
+          # %{reason: "invalid auction_id"}
           {:error, :not_found}
         end
     end
@@ -39,10 +39,10 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   @impl true
   def handle_in("join_bidding", _payload, socket) do
-    item_id = get_item_id(socket)
+    auction_id = get_auction_id(socket)
     user_id = get_user_id(socket)
 
-    UserInAuction.add_user_to_auction(item_id, user_id)
+    UserInAuction.add_user_to_auction(auction_id, user_id)
 
     new_socket =
       socket
@@ -53,10 +53,10 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   def handle_in("leave_bidding", _payload, socket) do
-    item_id = get_item_id(socket)
+    auction_id = get_auction_id(socket)
     user_id = get_user_id(socket)
 
-    UserInAuction.remove_user_from_auction(item_id, user_id)
+    UserInAuction.remove_user_from_auction(auction_id, user_id)
     |> case do
       {:error, :not_found} = error ->
         {:reply, error, socket}
@@ -83,7 +83,7 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   def handle_in("toggle_watch", _payload, socket) do
-    UserInAuction.toggle_watched_auction(get_item_id(socket), get_user_id(socket))
+    UserInAuction.toggle_watched_auction(get_auction_id(socket), get_user_id(socket))
     |> case do
       {:error, :joined} = error ->
         {:reply, error, socket}
@@ -107,10 +107,10 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   def handle_in("place_bid", %{"amount" => amount}, socket) when is_number(amount) do
-    item_id = get_item_id(socket)
+    auction_id = get_auction_id(socket)
     user_id = get_user_id(socket)
 
-    AuctionManager.place_bid(item_id, user_id, amount)
+    AuctionManager.place_bid(auction_id, user_id, amount)
     |> case do
       :ok ->
         {:reply, :ok, socket}
@@ -129,10 +129,10 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   def handle_info(:after_join, socket) do
     user_id = get_user_id(socket)
-    item_id = get_item_id(socket)
+    auction_id = get_auction_id(socket)
 
     new_socket =
-      case UserInAuction.get_user_status(item_id, user_id) do
+      case UserInAuction.get_user_status(auction_id, user_id) do
         {:error, :not_found} ->
           assign(socket, :user_status, "nothing")
 
@@ -151,7 +151,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     |> push_auction_item_biddings()
     |> subscribe_to_auction_item_pubsub()
 
-    UserStoreAgent.set_current_auction(user_id, item_id)
+    UserStoreAgent.set_current_auction(user_id, auction_id)
 
     {:noreply, new_socket}
   end
@@ -164,7 +164,7 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   defp subscribe_to_auction_item_pubsub(socket) do
     socket
-    |> get_item_id()
+    |> get_auction_id()
     |> AuctionPublisher.subscribe_auction_item()
 
     socket
@@ -185,7 +185,7 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   defp push_auction_item(socket) do
     socket
-    |> get_item_id()
+    |> get_auction_id()
     |> AuctionItem.with_data()
     |> case do
       {:ok, %AuctionItem{} = item_with_data} ->
@@ -217,7 +217,7 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   defp get_item_biddings(socket) do
     socket
-    |> get_item_id()
+    |> get_auction_id()
     |> ItemBid.get_item_bids()
   end
 
@@ -226,7 +226,7 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   defp get_user_status(socket) do
-    UserInAuction.get_user_status(get_item_id(socket), get_user_id(socket))
+    UserInAuction.get_user_status(get_auction_id(socket), get_user_id(socket))
     |> case do
       {:ok, status} ->
         status
@@ -250,14 +250,14 @@ defmodule BiddingPocWeb.BiddingChannel do
     assign(socket, :user_status, value)
   end
 
-  defp put_item_id(socket, item_id) do
-    assign(socket, :item_id, item_id)
+  defp put_auction_id(socket, auction_id) do
+    assign(socket, :auction_id, auction_id)
   end
 
-  defp get_item_id(socket) do
+  defp get_auction_id(socket) do
     socket
     |> Map.get(:assigns)
-    |> Map.get(:item_id)
+    |> Map.get(:auction_id)
   end
 
   defp get_user_id(socket) do

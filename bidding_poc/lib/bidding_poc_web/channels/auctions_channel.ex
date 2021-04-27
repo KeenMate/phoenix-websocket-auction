@@ -38,8 +38,8 @@ defmodule BiddingPocWeb.AuctionsChannel do
     end
   end
 
-  def handle_in("delete_auction", %{"item_id" => item_id}, socket) do
-    item_id
+  def handle_in("delete_auction", %{"auction_id" => auction_id}, socket) do
+    auction_id
     |> AuctionManager.remove_auction(get_user_id(socket))
     |> case do
       {:ok, _deleted_item} ->
