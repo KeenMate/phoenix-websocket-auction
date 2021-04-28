@@ -12,6 +12,8 @@ defmodule BiddingPocWeb.UserSocket do
   channel "users:lobby", BiddingPocWeb.UsersChannel
   channel "user:*", BiddingPocWeb.UserChannel
   channel "auctions", BiddingPocWeb.AuctionsChannel
+  channel "auction:*", BiddingPocWeb.AuctionChannel
+  channel "auction_presence:*", BiddingPocWeb.AuctionPresenceChannel
   channel "bidding:*", BiddingPocWeb.BiddingChannel
 
   @impl true

@@ -9,14 +9,25 @@ defmodule BiddingPoc.Application do
     children = [
       # Start the Telemetry supervisor
       BiddingPocWeb.Telemetry,
-      Supervisor.child_spec({Registry, name: Registry.AuctionItemRegistry, keys: :unique}, id: AuctionItemRegistry),
-      Supervisor.child_spec({Registry, name: Registry.UserStoreRegistry, keys: :unique}, id: UserStoreRegistry),
-      Supervisor.child_spec({DynamicSupervisor, strategy: :one_for_one, name: BiddingPoc.AuctionItemSupervisor}, id: AuctionItemSupervisor),
-      Supervisor.child_spec({DynamicSupervisor, strategy: :one_for_one, name: BiddingPoc.UserStoreSupervisor}, id: UserStoreSupervisor),
+      Supervisor.child_spec({Registry, name: Registry.AuctionItemRegistry, keys: :unique},
+        id: AuctionItemRegistry
+      ),
+      Supervisor.child_spec({Registry, name: Registry.UserStoreRegistry, keys: :unique},
+        id: UserStoreRegistry
+      ),
+      Supervisor.child_spec(
+        {DynamicSupervisor, strategy: :one_for_one, name: BiddingPoc.AuctionItemSupervisor},
+        id: AuctionItemSupervisor
+      ),
+      Supervisor.child_spec(
+        {DynamicSupervisor, strategy: :one_for_one, name: BiddingPoc.UserStoreSupervisor},
+        id: UserStoreSupervisor
+      ),
       # Start the PubSub system
       {Phoenix.PubSub, name: BiddingPoc.PubSub},
       # Auction item related events
       pubsub_child_spec(BiddingPoc.AuctionItemPubSub),
+      pubsub_child_spec(BiddingPoc.AuctionUserStatusPubSub),
       pubsub_child_spec(BiddingPoc.UserPubSub),
       # {Phoenix.PubSub, name: BiddingPoc.UserPubSub},
       BiddingPocWeb.Presence,

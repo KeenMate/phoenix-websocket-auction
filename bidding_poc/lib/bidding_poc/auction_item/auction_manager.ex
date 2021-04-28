@@ -1,7 +1,7 @@
 defmodule BiddingPoc.AuctionManager do
   require Logger
 
-  alias BiddingPoc.Database.{AuctionItem}
+  alias BiddingPoc.Database.{AuctionItem, UserInAuction}
   alias BiddingPoc.DateHelpers
   alias BiddingPoc.AuctionItemServer
   alias BiddingPoc.AuctionItemSupervisor
@@ -37,7 +37,8 @@ defmodule BiddingPoc.AuctionManager do
     AuctionItem.get_last_items(search, category_id, skip, take)
   end
 
-  @spec update_auction(map(), pos_integer()) :: {:ok, AuctionItem.t()} | {:error, :forbidden | :not_found | :user_not_found}
+  @spec update_auction(map(), pos_integer()) ::
+          {:ok, AuctionItem.t()} | {:error, :forbidden | :not_found | :user_not_found}
   def update_auction(params, user_id) do
     params
     |> new_item_from_params!()
@@ -48,7 +49,10 @@ defmodule BiddingPoc.AuctionManager do
         res
 
       {:error, :forbidden} = error ->
-        Logger.error("Attempted to update auction by forbidden user. user_id: #{inspect(user_id)}")
+        Logger.error(
+          "Attempted to update auction by forbidden user. user_id: #{inspect(user_id)}"
+        )
+
         error
 
       {:error, :user_not_found} = error ->
@@ -58,6 +62,85 @@ defmodule BiddingPoc.AuctionManager do
       {:error, :not_found} = error ->
         Logger.warn("Attempted to update auction that was not found. params: #{inspect(params)}")
         error
+    end
+  end
+
+  @spec toggle_follow_auction(pos_integer(), pos_integer()) :: Task.t()
+  @doc """
+  This functions toggles the follow relation between auction and user.
+  Runs asynchronously.
+  """
+  def toggle_follow_auction(auction_id, user_id) do
+    # Task.async(fn ->
+    UserInAuction.toggle_followed_auction(auction_id, user_id)
+    # |> case do
+    #   {:error, :joined} = error ->
+    #     error
+
+    #   {:ok, status} = res ->
+    #     AuctionPublisher.broadcast_auction_user_status_changed(
+    #       auction_id,
+    #       user_id,
+    #       status
+    #     )
+
+    #     res
+    # end
+
+    # end)
+  end
+
+  def join_auction(auction_id, user_id) do
+    # Task.async(fn ->
+    UserInAuction.add_user_to_auction(auction_id, user_id)
+    |> case do
+      {:ok, _} = result ->
+        AuctionPublisher.broadcast_auction_user_status_changed(
+          auction_id,
+          user_id,
+          :joined
+        )
+
+        result
+
+      {:error, :exists} = error ->
+        error
+    end
+
+    # end)
+  end
+
+  def leave_auction(auction_id, user_id) do
+    # Task.async(fn ->
+    UserInAuction.remove_user_from_auction(auction_id, user_id)
+    |> case do
+      {:ok, status} = res ->
+        AuctionPublisher.broadcast_auction_user_status_changed(
+          auction_id,
+          user_id,
+          case status do
+            :removed -> :nothing
+            :bidding_left -> :following
+          end
+        )
+
+        res
+
+      other ->
+        other
+    end
+
+    # end)
+  end
+
+  @spec place_bid(pos_integer(), pos_integer() | :system, pos_integer()) ::
+          :ok | {:error, :process_not_alive}
+  def place_bid(auction_id, user_id, amount) do
+    if auction_item_server_alive?(auction_id) do
+      AuctionItemServer.place_bid(auction_id, user_id, amount)
+    else
+      # TODO: Maybe call DB function to attempt to store bid
+      {:error, :process_not_alive}
     end
   end
 
@@ -76,7 +159,10 @@ defmodule BiddingPoc.AuctionManager do
             res
 
           {:error, :not_found} = error ->
-            Logger.warn("Attempted to remove nonexisting auction item", auction_id: inspect(auction_id))
+            Logger.warn("Attempted to remove nonexisting auction item",
+              auction_id: inspect(auction_id)
+            )
+
             error
         end
 
@@ -85,17 +171,6 @@ defmodule BiddingPoc.AuctionManager do
 
       {:error, _} = error ->
         error
-    end
-  end
-
-  @spec place_bid(pos_integer(), pos_integer() | :system, pos_integer()) ::
-          :ok | {:error, :process_not_alive}
-  def place_bid(auction_id, user_id, amount) do
-    if auction_item_server_alive?(auction_id) do
-      AuctionItemServer.place_bid(auction_id, user_id, amount)
-    else
-      # TODO: Maybe call DB function to attempt to store bid
-      {:error, :process_not_alive}
     end
   end
 

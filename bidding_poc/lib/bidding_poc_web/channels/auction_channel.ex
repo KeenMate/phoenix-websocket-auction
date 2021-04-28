@@ -7,9 +7,9 @@ defmodule BiddingPocWeb.AuctionChannel do
 
   alias BiddingPoc.Database.{AuctionItem, UserFollowedCategory, UserInAuction}
 
-  alias BiddingPoc.{UserManager}
+  alias BiddingPoc.{AuctionManager, UserManager}
   alias BiddingPoc.AuctionPublisher
-  alias BiddingPocWeb.Presence
+  alias BiddingPoc.UserStoreAgent
 
   @impl true
   def join("auction:" <> auction_id, _payload, socket) do
@@ -37,73 +37,53 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_in("join_auction", _payload, socket) do
-    auction_id = get_auction_id(socket)
-    user_id = get_user_id(socket)
+    AuctionManager.join_auction(get_auction_id(socket), get_user_id(socket))
+    |> case do
+      {:ok, _} ->
+        new_socket = put_user_status(socket, :joined)
 
-    UserInAuction.add_user_to_auction(auction_id, user_id)
-
-    new_socket =
-      socket
-      |> put_user_status(:joined)
-      |> update_presence_user_status()
-
-    {:reply, :ok, new_socket}
+        {:reply, :ok, new_socket}
+    end
   end
 
   def handle_in("leave_auction", _payload, socket) do
-    auction_id = get_auction_id(socket)
-    user_id = get_user_id(socket)
-
-    UserInAuction.remove_user_from_auction(auction_id, user_id)
+    AuctionManager.leave_auction(get_auction_id(socket), get_user_id(socket))
     |> case do
-      {:error, :not_found} = error ->
+      {:error, reason} = error when reason in [:not_found, :already_bidded] ->
         {:reply, error, socket}
 
-      {:error, :already_bidded} = error ->
-        {:reply, error, socket}
-
-      {:ok, :removed} = result ->
+      {:ok, status} = result ->
         new_socket =
-          socket
-          |> put_user_status(:nothing)
-          |> update_presence_user_status()
-
-        {:reply, result, new_socket}
-
-      {:ok, :bidding_left} = result ->
-        new_socket =
-          socket
-          |> put_user_status(:following)
-          |> update_presence_user_status()
+          put_user_status(
+            socket,
+            case status do
+              :removed -> :nothing
+              :bidding_left -> :following
+            end
+          )
 
         {:reply, result, new_socket}
     end
   end
 
   def handle_in("toggle_follow", _payload, socket) do
-    UserInAuction.toggle_followed_auction(get_auction_id(socket), get_user_id(socket))
+    AuctionManager.toggle_follow_auction(get_auction_id(socket), get_user_id(socket))
     |> case do
       {:error, :joined} = error ->
         {:reply, error, socket}
 
-      {:ok, :following} = res ->
+      {:ok, status} = res ->
         new_socket =
           socket
-          |> put_user_status(:following)
-          |> update_presence_user_status()
-
-        {:reply, res, new_socket}
-
-      {:ok, :not_following} = res ->
-        new_socket =
-          socket
-          |> put_user_status(:nothing)
-          |> update_presence_user_status()
+          |> put_user_status(
+            case status do
+              :following -> :following
+              :not_following -> :nothing
+            end
+          )
 
         {:reply, res, new_socket}
     end
-
-    {:noreply, socket}
   end
 
   @impl true
@@ -144,14 +124,16 @@ defmodule BiddingPocWeb.AuctionChannel do
     #       put_user_status(socket, :joined)
     #   end
 
+    UserStoreAgent.set_current_auction(get_user_id(socket), get_auction_id(socket))
+
     AuctionPublisher.subscribe_auction_topic(auction_id)
 
     {:noreply, socket}
   end
 
   @impl true
-  def terminate(reason, _socket) do
-    Logger.debug("Terminating, #{inspect(reason)}")
+  def terminate({:shutdown, _}, socket) do
+    UserStoreAgent.clear_current_auction(get_user_id(socket))
     :ok
   end
 

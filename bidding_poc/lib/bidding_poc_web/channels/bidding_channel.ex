@@ -3,13 +3,12 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   require Logger
 
-  import BiddingPocWeb.SocketHelpers
+  import BiddingPocWeb.SocketHelpers, except: [get_user_status: 1]
 
   alias BiddingPoc.Database.{AuctionItem, UserInAuction, AuctionBid}
   alias BiddingPoc.AuctionManager
   alias BiddingPoc.AuctionPublisher
   alias BiddingPoc.UserStoreAgent
-  alias BiddingPocWeb.Presence
 
   @impl true
   def join("bidding:" <> auction_id, _payload, socket) do
@@ -58,22 +57,7 @@ defmodule BiddingPocWeb.BiddingChannel do
   end
 
   def handle_info(:after_join, socket) do
-    user_id = get_user_id(socket)
-    auction_id = get_auction_id(socket)
-
-    new_socket =
-      case UserInAuction.get_user_status(auction_id, user_id) do
-        {:error, :not_found} ->
-          assign(socket, :user_status, "nothing")
-
-        {:ok, :following} ->
-          assign(socket, :user_status, "following")
-
-        {:ok, :joined} ->
-          assign(socket, :user_status, "joined")
-      end
-
-    # setup_presence(new_socket)
+    new_socket = put_user_status(socket, get_user_status(socket))
 
     # send init data to client
     new_socket
@@ -81,15 +65,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     |> push_auction_item_biddings()
     |> subscribe_to_auction_item_pubsub()
 
-    UserStoreAgent.set_current_auction(user_id, auction_id)
-
     {:noreply, new_socket}
-  end
-
-  @impl true
-  def terminate({:shutdown, _}, socket) do
-    UserStoreAgent.clear_current_auction(get_user_id(socket))
-    :ok
   end
 
   defp subscribe_to_auction_item_pubsub(socket) do
@@ -99,19 +75,6 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     socket
   end
-
-  # defp setup_presence(socket) do
-  #   user_id = get_user_id(socket)
-
-  #   push(socket, "presence_state", get_item_users(socket))
-
-  #   Presence.track(socket, user_id, %{
-  #     id: user_id,
-  #     username: socket.assigns.user.username,
-  #     display_name: socket.assigns.user.display_name,
-  #     user_status: socket.assigns.user_status
-  #   })
-  # end
 
   defp push_auction_item(socket) do
     socket
@@ -143,6 +106,14 @@ defmodule BiddingPocWeb.BiddingChannel do
 
     push(socket, "biddings", %{biddings: biddings})
     socket
+  end
+
+  def get_user_status(socket) do
+    UserInAuction.get_user_status(get_auction_id(socket), get_user_id(socket))
+    |> case do
+      {:ok, status} -> status
+      {:error, :not_found} -> :nothing
+    end
   end
 
   defp get_item_biddings(socket) do

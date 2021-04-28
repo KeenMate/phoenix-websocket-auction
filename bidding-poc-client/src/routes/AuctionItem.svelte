@@ -4,7 +4,7 @@
 	import m from "moment"
 	import {socket} from "../providers/socket/common"
 	import {deleteAuction} from "../providers/socket/auction"
-	import {initBiddingChannel, joinBidding, leaveBidding, placeBid, toggleWatch} from "../providers/socket/bidding"
+	import {initAuctionChannels, joinBidding, leaveBidding, placeBid, toggleWatch} from "../providers/socket/bidding"
 	import toastr from "../helpers/toastr-helpers"
 	import eventBus from "../helpers/event-bus"
 	import {minuteer} from "../stores/other"
@@ -17,7 +17,7 @@
 	export let params = {}
 
 	// auction item
-	let auctionItemChannel
+	let channels
 	let auctionItem = {}
 	let users = null
 	let biddings = []
@@ -29,10 +29,10 @@
 
 	$: paramAuctionItemId = Number(params.id)
 
-	$: $socket && initBiddingChannel($socket, paramAuctionItemId, channelListeners)
-		.then(({channel, users: usersStore}) => {
+	$: $socket && initAuctionChannels($socket, paramAuctionItemId, channelListeners)
+		.then(({channels: theChannels, users: usersStore}) => {
 			users = usersStore
-			auctionItemChannel = channel
+			channels = theChannels
 		})
 		.catch(({channel, error}) => {
 			console.error("Could not initiate auction item channel", error)
@@ -45,7 +45,7 @@
 
 			toastr.error("Could not open connection for this auction item")
 
-			auctionItemChannel = channel
+			channels = channel
 		})
 
 	$: $minuteer && (biddings = biddings)
@@ -101,12 +101,12 @@
 	}
 
 	function onJoinBidding() {
-		if (!auctionItemChannel) {
+		if (!channels) {
 			console.warn("Could not join bidding because there is no auction channel available")
 			return
 		}
 
-		joinBidding(auctionItemChannel)
+		joinBidding(channels)
 			.then(() => {
 				toastr.success("Auction joined!")
 				console.log("Auction joined")
@@ -119,13 +119,13 @@
 	}
 
 	function onLeaveBidding() {
-		if (!auctionItemChannel) {
+		if (!channels) {
 			console.warn("Could not leave bidding because there is no auction channel available")
 			toastr.warning("Connection not alive")
 			return
 		}
 
-		leaveBidding(auctionItemChannel)
+		leaveBidding(channels)
 			.then(result => {
 				switch (result) {
 					case "removed":
@@ -168,7 +168,7 @@
 	}
 
 	function onPlaceBid({detail: bid}) {
-		placeBid(auctionItemChannel, bid)
+		placeBid(channels, bid)
 			.then(() => {
 				toastr.success("Bid place requested", {timeOut: "1000"})
 				// onBidPlaced(newBid)
@@ -255,8 +255,8 @@
 
 	onDestroy(() => {
 		console.log("Destroying auction item")
-		if (auctionItemChannel) {
-			auctionItemChannel.leave()
+		if (channels) {
+			channels.leave()
 		}
 
 		eventBusListeners()
@@ -285,7 +285,7 @@
 				<Notification>
 					This auction has not started yet
 				</Notification>
-			{:else if auctionItemChannel}
+			{:else if channels}
 				<AuctionItemBiddingForm
 					itemId={auctionItem.id}
 					userStatus={auctionItem.user_status}

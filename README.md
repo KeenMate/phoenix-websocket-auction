@@ -1,7 +1,5 @@
 # phoenix-websocket-auction
 
-
-
 ## Bidding channels
 
 ### Lobby
@@ -30,12 +28,12 @@
  - bid averaged
  - bid placed (only if user opts in for this)
 
-### User presence (per auction)
- - [FaF] toggle follow auction
- - follow toggled
+### Auction presence
+ - [FaF] toggle follow auction (Now, its [RR])
+ - follow toggled (Not used now)
  - presence_sync/diff (user status changed: joined/followed/(nothing - just watching))
 
-### User presence (some global presence)
+### User (for global presence as well - in future)
  - [FaF] friendify/unfriendify user
  - user user status changed
  - user auction status changed

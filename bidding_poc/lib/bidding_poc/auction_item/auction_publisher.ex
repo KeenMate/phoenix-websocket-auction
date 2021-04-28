@@ -67,6 +67,14 @@ defmodule BiddingPoc.AuctionPublisher do
     )
   end
 
+  def broadcast_auction_user_status_changed(auction_id, user_id, status) do
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionUserStatusPubSub,
+      user_auction_presence(auction_id, user_id),
+      {:user_status_changed, status}
+    )
+  end
+
   # SUBSCRIPTIONS
 
   def subscribe_auction_topic(auction_id) do
@@ -77,6 +85,13 @@ defmodule BiddingPoc.AuctionPublisher do
     Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auctions_topic())
   end
 
+  def subscribe_auction_user_presence(auction_id, user_id) do
+    Phoenix.PubSub.subscribe(
+      BiddingPoc.AuctionUserStatusPubSub,
+      user_auction_presence(auction_id, user_id)
+    )
+  end
+
   # TOPICS
 
   def auctions_topic() do
@@ -85,5 +100,9 @@ defmodule BiddingPoc.AuctionPublisher do
 
   def auction_item_topic(auction_id) do
     "auction:#{auction_id}"
+  end
+
+  def user_auction_presence(auction_id, user_id) do
+    "auction_presence:#{auction_id}:#{user_id}"
   end
 end
