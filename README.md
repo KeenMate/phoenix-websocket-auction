@@ -13,7 +13,6 @@
 
 ### Auctions
  - [RR] create auction
- - [RR] read auction detail
  - [RR] get auctions
  - [RR] get categories
  - [RR] update auction

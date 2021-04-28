@@ -12,7 +12,7 @@ defmodule BiddingPoc.AuctionManager do
   def create_auction(params, user_id) do
     params
     |> new_item_from_params!()
-    |> BiddingPoc.AuctionItem.create_auction_item(user_id)
+    |> AuctionItem.create_auction(user_id)
     |> case do
       {:ok, new_item} = res ->
         star_auction_item_server(new_item.id, true)
@@ -27,26 +27,49 @@ defmodule BiddingPoc.AuctionManager do
     end
   end
 
-  @spec new_item_from_params!(map()) :: AuctionItem.t()
-  def new_item_from_params!(params) do
-    %AuctionItem{
-      title: params["title"],
-      category_id: params["category_id"],
-      start_price: params["start_price"],
-      bidding_start: DateHelpers.parse_iso_datetime!(params["bidding_start"]),
-      bidding_end: DateHelpers.parse_iso_datetime!(params["bidding_end"])
-    }
+  @spec get_auctions(map()) :: [AuctionItem.t()]
+  def get_auctions(params) do
+    search = Map.get(params, "search")
+    category_id = Map.get(params, "category_id")
+    skip = Map.get(params, "skip")
+    take = Map.get(params, "take")
+
+    AuctionItem.get_last_items(search, category_id, skip, take)
   end
 
-  @spec remove_auction(pos_integer(), pos_integer()) ::
+  @spec update_auction(map(), pos_integer()) :: {:ok, AuctionItem.t()} | {:error, :forbidden | :not_found | :user_not_found}
+  def update_auction(params, user_id) do
+    params
+    |> new_item_from_params!()
+    |> AuctionItem.update_auction(user_id)
+    |> case do
+      {:ok, updated} = res ->
+        AuctionPublisher.broadcast_auction_updated(updated)
+        res
+
+      {:error, :forbidden} = error ->
+        Logger.error("Attempted to update auction by forbidden user. user_id: #{inspect(user_id)}")
+        error
+
+      {:error, :user_not_found} = error ->
+        Logger.warn("Attempted to update auction by missing user. user_id: #{inspect(user_id)}")
+        error
+
+      {:error, :not_found} = error ->
+        Logger.warn("Attempted to update auction that was not found. params: #{inspect(params)}")
+        error
+    end
+  end
+
+  @spec delete_auction(pos_integer(), pos_integer()) ::
           {:error, :forbidden | :not_found | :user_not_found} | {:ok, AuctionItem.t()}
-  def remove_auction(auction_id, user_id) do
+  def delete_auction(auction_id, user_id) do
     auction_id
     |> AuctionItem.user_id_authorized?(user_id)
     |> case do
       true ->
         auction_id
-        |> AuctionItem.delete_item()
+        |> AuctionItem.delete_auction()
         |> case do
           {:ok, deleted} = res ->
             AuctionPublisher.broadcast_item_removed(deleted)
@@ -76,12 +99,16 @@ defmodule BiddingPoc.AuctionManager do
     end
   end
 
-  defp auction_item_server_alive?(auction_id) do
-    Registry.lookup(Registry.AuctionItemRegistry, auction_id)
-    |> case do
-      [] -> false
-      [_] -> true
-    end
+  @spec new_item_from_params!(map()) :: AuctionItem.t()
+  def new_item_from_params!(params) do
+    %AuctionItem{
+      title: params["title"],
+      category_id: params["category_id"],
+      start_price: params["start_price"],
+      minimum_bid_step: params["minimum_bid_step"],
+      bidding_start: DateHelpers.parse_iso_datetime!(params["bidding_start"]),
+      bidding_end: DateHelpers.parse_iso_datetime!(params["bidding_end"])
+    }
   end
 
   def star_auction_item_server(auction_id, initially_started) do
@@ -93,5 +120,13 @@ defmodule BiddingPoc.AuctionManager do
 
   def auction_item_server_spec(auction_id, initialy_started) do
     {AuctionItemServer, %{auction_id: auction_id, initialy_started: initialy_started}}
+  end
+
+  defp auction_item_server_alive?(auction_id) do
+    Registry.lookup(Registry.AuctionItemRegistry, auction_id)
+    |> case do
+      [] -> false
+      [_] -> true
+    end
   end
 end

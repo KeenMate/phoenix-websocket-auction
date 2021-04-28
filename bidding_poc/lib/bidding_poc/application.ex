@@ -16,12 +16,8 @@ defmodule BiddingPoc.Application do
       # Start the PubSub system
       {Phoenix.PubSub, name: BiddingPoc.PubSub},
       # Auction item related events
-      Supervisor.child_spec({Phoenix.PubSub, name: BiddingPoc.AuctionItemPubSub},
-        id: BiddingPoc.AuctionItemPubSub
-      ),
-      Supervisor.child_spec({Phoenix.PubSub, name: BiddingPoc.UserPubSub},
-        id: BiddingPoc.UserPubSub
-      ),
+      pubsub_child_spec(BiddingPoc.AuctionItemPubSub),
+      pubsub_child_spec(BiddingPoc.UserPubSub),
       # {Phoenix.PubSub, name: BiddingPoc.UserPubSub},
       BiddingPocWeb.Presence,
       {BiddingPoc.StartAuctionServersTask, []},
@@ -54,5 +50,11 @@ defmodule BiddingPoc.Application do
 
     BiddingPoc.DataPopulation.insert_users()
     BiddingPoc.DataPopulation.insert_categories()
+  end
+
+  defp pubsub_child_spec(name) do
+    Supervisor.child_spec({Phoenix.PubSub, name: name},
+      id: name
+    )
   end
 end

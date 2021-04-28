@@ -66,15 +66,15 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   @impl true
-  def handle_info(:bidding_started, %{item: item} = state) do
-    place_bid(item.id, :initial_bid, item.start_price)
-    AuctionPublisher.broadcast_bidding_started(item)
+  def handle_info(:bidding_started, %{auction: auction} = state) do
+    place_bid(auction.id, :initial_bid, auction.start_price)
+    AuctionPublisher.broadcast_bidding_started(auction)
 
     {:noreply, state}
   end
 
-  def handle_info(:bidding_ended, %{item: item} = state) do
-    AuctionPublisher.broadcast_bidding_ended(item)
+  def handle_info(:bidding_ended, %{auction: auction} = state) do
+    AuctionPublisher.broadcast_bidding_ended(auction)
     {:noreply, state}
   end
 
@@ -82,16 +82,16 @@ defmodule BiddingPoc.AuctionItemServer do
     state.auction_id
     |> AuctionItem.get_by_id()
     |> case do
-      {:ok, item} ->
-        item
+      {:ok, auction} ->
+        auction
         |> register_bidding_started(initialy_started)
         |> register_bidding_ended()
-        |> broadcast_item_added(initialy_started)
+        |> broadcast_auction_added(initialy_started)
 
         {
           :noreply,
           state
-          |> Map.put(:item, item)
+          |> Map.put(:auction, auction)
         }
 
       {:error, :not_found} ->
@@ -104,39 +104,39 @@ defmodule BiddingPoc.AuctionItemServer do
     end
   end
 
-  defp after_bid_placed(state, user_id, item_bid) do
-    send_user_bid_placed(user_id, item_bid)
+  defp after_bid_placed(state, user_id, auction_bid) do
+    send_user_bid_placed(user_id, auction_bid)
 
-    [enhanced_bid] = ItemBid.with_data([item_bid])
+    [enhanced_bid] = ItemBid.with_data([auction_bid])
 
     broadcast_bid_placed(enhanced_bid)
-    update_average_bidding(state, item_bid)
+    update_average_bidding(state, auction_bid)
 
     # TODO: Broadcast avarage bidding to yet to be created channel for "my auctions"
     |> broadcast_bid_average_changed()
   end
 
-  defp send_user_bid_placed(user_id, item_bid) do
-    UserPublisher.send_bid_placed_success(user_id, item_bid)
+  defp send_user_bid_placed(user_id, auction_bid) do
+    UserPublisher.send_bid_placed_success(user_id, auction_bid)
   end
 
   defp broadcast_bid_placed_error(user_id, error) do
     UserPublisher.send_place_bid_error(user_id, error)
   end
 
-  defp update_average_bidding(state, item_bid) do
+  defp update_average_bidding(state, auction_bid) do
     tmp_state =
       state
       |> Map.update(:bids_count, 1, &(&1 + 1))
-      |> Map.update(:bids_sum, item_bid.amount, &(&1 + item_bid.amount))
+      |> Map.update(:bids_sum, auction_bid.amount, &(&1 + auction_bid.amount))
 
     tmp_state
     |> Map.put(:bids_average, tmp_state.bids_sum / tmp_state.bids_count)
   end
 
-  defp register_bidding_started(%AuctionItem{} = item, initialy_started) do
+  defp register_bidding_started(%AuctionItem{} = auction, initialy_started) do
     now = DateTime.now!(Common.timezone())
-    start = item.bidding_start
+    start = auction.bidding_start
 
     cond do
       DateTime.compare(start, now) == :gt ->
@@ -148,18 +148,18 @@ defmodule BiddingPoc.AuctionItemServer do
       true -> nil
     end
 
-    item
+    auction
   end
 
-  defp register_bidding_ended(%AuctionItem{} = item) do
+  defp register_bidding_ended(%AuctionItem{} = auction) do
     now = DateTime.now!(Common.timezone())
-    ended = item.bidding_end
+    ended = auction.bidding_end
 
     if DateTime.compare(ended, now) == :gt do
       :erlang.send_after(DateTime.diff(ended, now, :millisecond), self(), :bidding_ended)
     end
 
-    item
+    auction
   end
 
   defp broadcast_bid_average_changed(state) do
@@ -168,13 +168,13 @@ defmodule BiddingPoc.AuctionItemServer do
     state
   end
 
-  defp broadcast_bid_placed(item_bid) do
-    AuctionPublisher.broadcast_bid_placed(item_bid)
+  defp broadcast_bid_placed(auction_bid) do
+    AuctionPublisher.broadcast_bid_placed(auction_bid)
   end
 
-  defp broadcast_item_added(_, false), do: :ok
+  defp broadcast_auction_added(_, false), do: :ok
 
-  defp broadcast_item_added(item, _) do
-    AuctionPublisher.broadcast_item_added(item)
+  defp broadcast_auction_added(auction, _) do
+    AuctionPublisher.broadcast_auction_added(auction)
   end
 end

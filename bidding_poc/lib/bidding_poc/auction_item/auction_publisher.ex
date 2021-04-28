@@ -1,47 +1,61 @@
 defmodule BiddingPoc.AuctionPublisher do
+  # TODO: This is not OK.. This library should not rely on Phoenix...
+
   alias BiddingPoc.Database.{ItemBid, AuctionItem}
 
-  def broadcast_item_added(auction_item) do
+  # BROADCASTS
+
+  @spec broadcast_auction_added(AuctionItem.t()) :: :ok | {:error, any}
+  def broadcast_auction_added(auction_item) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
       auctions_topic(),
-      {:item_added, auction_item}
+      {:auction_added, auction_item}
     )
   end
 
+  @spec broadcast_item_removed(AuctionItem.t()) :: :ok | {:error, any()}
   def broadcast_item_removed(auction_item) do
-    # TODO: This is not OK.. This library should not rely on Phoenix...
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
       auctions_topic(),
-      {:item_removed, auction_item}
+      {:auction_deleted, auction_item}
+    )
+  end
+
+  @spec broadcast_auction_updated(AuctionItem.t()) :: :ok | {:error, any()}
+  def broadcast_auction_updated(auction_item) do
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionItemPubSub,
+      auction_item_topic(auction_item.id),
+      {:detail_updated, auction_item}
     )
   end
 
   @spec broadcast_bidding_started(AuctionItem.t()) :: :ok | {:error, any()}
-  def broadcast_bidding_started(item) do
+  def broadcast_bidding_started(auction) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
       auctions_topic(),
-      {:bidding_started, item}
+      {:bidding_started, auction}
     )
   end
 
   @spec broadcast_bidding_ended(AuctionItem.t()) :: :ok | {:error, any()}
-  def broadcast_bidding_ended(item) do
+  def broadcast_bidding_ended(auction) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
       auctions_topic(),
-      {:bidding_ended, item}
+      {:bidding_ended, auction}
     )
   end
 
   @spec broadcast_bid_placed(ItemBid.t()) :: :ok | {:error, any}
-  def broadcast_bid_placed(item_bid) do
+  def broadcast_bid_placed(auction_bid) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auction_item_topic(item_bid.auction_id),
-      {:bid_placed, item_bid}
+      auction_item_topic(auction_bid.auction_id),
+      {:bid_placed, auction_bid}
     )
   end
 
@@ -53,19 +67,23 @@ defmodule BiddingPoc.AuctionPublisher do
     )
   end
 
-  def subscribe_auction_item(auction_id) do
-    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, "auction_item:#{auction_id}")
+  # SUBSCRIPTIONS
+
+  def subscribe_auction_topic(auction_id) do
+    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auction_item_topic(auction_id))
   end
 
   def subscribe_auctions_topic() do
     Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auctions_topic())
   end
 
+  # TOPICS
+
   def auctions_topic() do
     "auctions"
   end
 
   def auction_item_topic(auction_id) do
-    "auction_item:#{auction_id}"
+    "auction:#{auction_id}"
   end
 end

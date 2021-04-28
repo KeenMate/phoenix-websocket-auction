@@ -39,7 +39,7 @@ defmodule BiddingPocWeb.Router do
     end
 
     resources "/user", UserController, only: [:show, :delete] do
-      resources "/watchlist", UserWatchlistController, only: [:index, :create, :update, :delete]
+      resources "/followlist", UserFollowlistController, only: [:index, :create, :update, :delete]
     end
 
     get "/me", MeController, :index

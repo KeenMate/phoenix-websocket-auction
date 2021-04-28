@@ -1,8 +1,8 @@
 defmodule BiddingPoc.UserPublisher do
   alias BiddingPoc.UserPubSub
 
-  def send_bid_placed_success(user_id, item_bid) do
-    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, item_bid})
+  def send_bid_placed_success(user_id, auction_bid) do
+    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, auction_bid})
   end
 
   def send_place_bid_error(user_id, error) do

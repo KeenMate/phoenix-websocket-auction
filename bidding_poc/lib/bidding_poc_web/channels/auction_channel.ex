@@ -3,10 +3,9 @@ defmodule BiddingPocWeb.AuctionChannel do
 
   require Logger
 
-  alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserWatchedCategory, UserInAuction}
+  alias BiddingPoc.Database.{AuctionItem, UserFollowedCategory, UserInAuction}
 
-  alias BiddingPoc.AuctionItem, as: AuctionItemContext
-  alias BiddingPoc.{AuctionManager, UserManager}
+  alias BiddingPoc.{UserManager}
   alias BiddingPoc.AuctionPublisher
   alias BiddingPocWeb.Presence
 
@@ -14,25 +13,102 @@ defmodule BiddingPocWeb.AuctionChannel do
   def join("auction:" <> auction_id, _payload, socket) do
     send(self(), :after_join)
 
-    {
-      :ok,
-      socket
-    }
+    auction_id
+    |> Integer.parse()
+    |> case do
+      :error ->
+        {:error, :invalid_auction_id}
+
+      {parsed_auction_id, _} ->
+        {
+          :ok,
+          socket
+          |> put_auction_id(parsed_auction_id)
+          |> put_user_status(:nothing)
+        }
+    end
   end
 
   @impl true
-  def handle_in("join_bidding", _payload, socket) do
+  def handle_in("get_auction", %{"auction_id" => auction_id}, socket) do
+    {:reply, AuctionItem.get_by_id(auction_id), socket}
+  end
+
+  def handle_in("join_auction", _payload, socket) do
+    auction_id = get_auction_id(socket)
+    user_id = get_user_id(socket)
+
+    UserInAuction.add_user_to_auction(auction_id, user_id)
+
+    new_socket =
+      socket
+      |> put_user_status(:joined)
+      |> update_presence_user_status()
+
+    {:reply, :ok, new_socket}
+  end
+
+  def handle_in("leave_auction", _payload, socket) do
+    auction_id = get_auction_id(socket)
+    user_id = get_user_id(socket)
+
+    UserInAuction.remove_user_from_auction(auction_id, user_id)
+    |> case do
+      {:error, :not_found} = error ->
+        {:reply, error, socket}
+
+      {:error, :already_bidded} = error ->
+        {:reply, error, socket}
+
+      {:ok, :removed} = result ->
+        new_socket =
+          socket
+          |> put_user_status(:nothing)
+          |> update_presence_user_status()
+
+        {:reply, result, new_socket}
+
+      {:ok, :bidding_left} = result ->
+        new_socket =
+          socket
+          |> put_user_status(:following)
+          |> update_presence_user_status()
+
+        {:reply, result, new_socket}
+    end
+  end
+
+  def handle_in("toggle_follow", _payload, socket) do
     {:noreply, socket}
   end
 
-  def handle_in("leave_bidding", _payload, socket) do
-    {:noreply, socket}
-  end
+  # TODO: Rewrite to toggle_follow
+  # def handle_in("toggle_follow", _payload, socket) do
+  #   UserInAuction.toggle_followed_auction(get_auction_id(socket), get_user_id(socket))
+  #   |> case do
+  #     {:error, :joined} = error ->
+  #       {:reply, error, socket}
+
+  #     {:ok, :following} = res ->
+  #       new_socket =
+  #         socket
+  #         |> put_user_status(:following)
+  #         |> update_presence_user_status()
+
+  #       {:reply, res, new_socket}
+
+  #     {:ok, :not_following} = res ->
+  #       new_socket =
+  #         socket
+  #         |> put_user_status(:nothing)
+  #         |> update_presence_user_status()
+
+  #       {:reply, res, new_socket}
+  #   end
+  # end
 
   @impl true
   def handle_info({:bidding_started, %AuctionItem{} = auction_item}, socket) do
-    Logger.debug("[PES]: Catched bidding started")
-
     if user_interested_in_auction_item?(socket, auction_item) do
       push(socket, "bidding_started", auction_item)
     end
@@ -54,11 +130,25 @@ defmodule BiddingPocWeb.AuctionChannel do
   end
 
   def handle_info(:after_join, socket) do
-    {:ok, _} = Presence.track(socket, socket.assigns.user.id, %{})
+    user_id = get_user_id(socket)
+    auction_id = get_auction_id(socket)
+    # {:ok, _} = Presence.track(socket, get_user_id(socket), %{})
 
-    AuctionPublisher.subscribe_auctions_topic()
+    new_socket =
+      case UserInAuction.get_user_status(auction_id, user_id) do
+        {:error, :not_found} ->
+          assign(socket, :user_status, "nothing")
 
-    {:noreply, socket}
+        {:ok, :following} ->
+          assign(socket, :user_status, "following")
+
+        {:ok, :joined} ->
+          assign(socket, :user_status, "joined")
+      end
+
+    AuctionPublisher.subscribe_auction_topic(get_auction_id(new_socket))
+
+    {:noreply, new_socket}
   end
 
   @impl true
@@ -71,15 +161,45 @@ defmodule BiddingPocWeb.AuctionChannel do
     user_id = get_user_id(socket)
 
     UserManager.is_auction_currently_viewed?(user_id, auction_item.id) ||
-      category_watched_by_user?(user_id, auction_item) ||
+      category_followed_by_user?(user_id, auction_item) ||
       UserInAuction.user_in_auction?(auction_item.id, user_id)
   end
 
-  defp category_watched_by_user?(user_id, auction_item) do
+  defp category_followed_by_user?(user_id, auction_item) do
     auction_item
     |> Map.get(:category_id)
-    |> UserWatchedCategory.category_watched_by_user?(user_id)
+    |> UserFollowedCategory.category_followed_by_user?(user_id)
+  end
+
+  defp put_user_status(socket, value) when value in [:following, :joined, :nothing] do
+    assign(socket, :user_status, value)
+  end
+
+  defp update_presence_user_status(socket) do
+    Presence.update(
+      socket,
+      get_user_id(socket),
+      &Map.put(&1, :user_status, get_user_status(socket))
+    )
+
+    socket
+  end
+
+  defp put_auction_id(socket, auction_id) do
+    assign(socket, :auction_id, auction_id)
+  end
+
+  defp get_user_status(socket) do
+    socket
+    |> Map.get(:assigns)
+    |> Map.get(:user_status)
   end
 
   defp get_user_id(%{assigns: %{user: %{id: user_id}}}), do: user_id
+
+  defp get_auction_id(socket) do
+    socket
+    |> Map.get(:assigns)
+    |> Map.get(:auction_id)
+  end
 end

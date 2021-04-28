@@ -51,12 +51,12 @@ defmodule BiddingPocWeb.AuctionItemController do
   def show(conn, %{"id" => auction_id}) do
     parsed_auction_id = String.to_integer(auction_id)
 
-    with {:ok, item} <- AuctionItem.get_by_id(parsed_auction_id),
+    with {:ok, auction} <- AuctionItem.get_by_id(parsed_auction_id),
          {:ok, biddings} <- ItemBid.get_item_bids(parsed_auction_id) do
       conn
       |> put_status(:ok)
       |> json(%{
-        item: Map.from_struct(item),
+        auction: Map.from_struct(auction),
         biddings: Enum.take(biddings, 10)
       })
     else
@@ -77,7 +77,7 @@ defmodule BiddingPocWeb.AuctionItemController do
 
     auction_id
     |> String.to_integer()
-    |> AuctionItem.delete_item()
+    |> AuctionItem.delete_auction()
 
     conn
     |> put_status(:ok)
