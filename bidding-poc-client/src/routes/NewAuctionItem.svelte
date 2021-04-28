@@ -13,7 +13,7 @@
 	let title = ""
 	let categoryId = null
 	let startPrice = 0
-	let increment = 10
+	let minimumBidStep = 10
 	let biddingEnd = m().add(3, "minute").toDate()
 	// minutes
 	let postponedFor = null
@@ -46,7 +46,8 @@
 			categoryId,
 			startPrice,
 			biddingStart,
-			biddingEnd
+			biddingEnd,
+			minimumBidStep
 		})
 			.then(ctx => {
 				push(getAuctionItemUrl(ctx.id))
@@ -118,10 +119,10 @@
 				</div>
 				<div class="column is-3">
 					<NumberInput
-						value={increment}
+						value={minimumBidStep}
 						label="Increment"
 						required
-						on:input={({detail: d}) => increment = d}
+						on:input={({detail: d}) => minimumBidStep = d}
 					/>
 				</div>
 			</div>

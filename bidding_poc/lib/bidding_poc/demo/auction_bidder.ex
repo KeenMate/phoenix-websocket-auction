@@ -1,12 +1,12 @@
 defmodule BiddingPoc.AuctionBidder do
   alias BiddingPoc.AuctionBidderServer, as: BidderServer
-  alias BiddingPoc.Database.ItemBid
+  alias BiddingPoc.Database.AuctionBid
 
   def start_bidders(auction_ids, count) do
     bids =
       auction_ids
       |> Stream.map(fn auction_id ->
-        {auction_id, ItemBid.get_item_highest_bid(auction_id)}
+        {auction_id, AuctionBid.get_item_highest_bid(auction_id)}
       end)
       |> Stream.filter(&Enum.any?(elem(&1, 1)))
       |> Stream.map(fn {auction_id, [bid]} -> {auction_id, bid.amount} end)

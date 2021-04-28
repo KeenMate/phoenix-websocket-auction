@@ -7,7 +7,7 @@ defmodule BiddingPoc.AuctionItemServer do
   require Logger
 
   alias BiddingPoc.Common
-  alias BiddingPoc.Database.{AuctionItem, ItemBid}
+  alias BiddingPoc.Database.{AuctionItem, AuctionBid}
   alias BiddingPoc.AuctionPublisher
   alias BiddingPoc.UserPublisher
 
@@ -86,7 +86,7 @@ defmodule BiddingPoc.AuctionItemServer do
         auction
         |> register_bidding_started(initialy_started)
         |> register_bidding_ended()
-        |> broadcast_auction_added(initialy_started)
+        |> broadcast_auction_created(initialy_started)
 
         {
           :noreply,
@@ -107,7 +107,7 @@ defmodule BiddingPoc.AuctionItemServer do
   defp after_bid_placed(state, user_id, auction_bid) do
     send_user_bid_placed(user_id, auction_bid)
 
-    [enhanced_bid] = ItemBid.with_data([auction_bid])
+    [enhanced_bid] = AuctionBid.with_data([auction_bid])
 
     broadcast_bid_placed(enhanced_bid)
     update_average_bidding(state, auction_bid)
@@ -172,9 +172,9 @@ defmodule BiddingPoc.AuctionItemServer do
     AuctionPublisher.broadcast_bid_placed(auction_bid)
   end
 
-  defp broadcast_auction_added(_, false), do: :ok
+  defp broadcast_auction_created(_, false), do: :ok
 
-  defp broadcast_auction_added(auction, _) do
-    AuctionPublisher.broadcast_auction_added(auction)
+  defp broadcast_auction_created(auction, _) do
+    AuctionPublisher.broadcast_auction_created(auction)
   end
 end

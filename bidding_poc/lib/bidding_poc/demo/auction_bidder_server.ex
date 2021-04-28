@@ -3,6 +3,8 @@ defmodule BiddingPoc.AuctionBidderServer do
 
   require Logger
 
+  alias BiddingPoc.AuctionManager
+
   @place_bid_chance 0.7
 
   def start_link(arg) do
@@ -23,7 +25,7 @@ defmodule BiddingPoc.AuctionBidderServer do
     new_bids =
       state.auction_ids
       |> Enum.filter(fn _ -> :random.uniform() < @place_bid_chance end)
-      |> Enum.reduce(Map.get(state, :bids, %{}), &place_bid(&1, &2, state.user_id, state.name))
+      |> Enum.reduce(Map.get(state, :bids, %{}), &place_bid_for_auction(&1, &2, state))
 
     register_elapse_event()
     {
@@ -38,15 +40,26 @@ defmodule BiddingPoc.AuctionBidderServer do
     {:noreply, state}
   end
 
+  defp place_bid_for_auction(_auction_id, {:error, :process_not_alive} = error, _state) do
+    error
+  end
+
+  defp place_bid_for_auction(auction_id, bids, state) do
+    place_bid(auction_id, bids, state.user_id, state.name)
+  end
+
   defp place_bid(auction_id, bids, user_id, name) do
     log_debug(name, "Placing bid for #{auction_id}")
 
     {new_bid, new_bids} = get_new_bid(auction_id, bids)
 
-    BiddingPoc.place_bid(auction_id, user_id, new_bid)
+    AuctionManager.place_bid(auction_id, user_id, new_bid)
     |> case do
       :ok ->
         new_bids
+
+      {:error, :process_not_alive} = error ->
+        error
     end
   end
 

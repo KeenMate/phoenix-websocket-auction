@@ -5,7 +5,7 @@ alias BiddingPoc.Common
 defdatabase BiddingPoc.Database do
   deftable(UserFollowedCategory)
   deftable(AuctionItem)
-  deftable(ItemBid)
+  deftable(AuctionBid)
 
   deftable User, [{:id, autoincrement}, :username, :display_name, :password, :is_admin],
     type: :set,
@@ -169,10 +169,9 @@ defdatabase BiddingPoc.Database do
           true ->
             delete(user_id)
 
-            user_id
-            |> delete_user_categories()
-            |> delete_user_auction_items()
-            |> delete_user_biddings()
+            delete_user_categories(user_id)
+            AuctionItem.delete_user_auctions(user_id)
+            AuctionBid.delete_user_bids(user_id)
 
             Logger.debug("User: #{user_id} deleted")
 
@@ -213,28 +212,6 @@ defdatabase BiddingPoc.Database do
       } = params
 
       to_user(Map.get(params, "id"), username, display_name, password, is_admin)
-    end
-
-    defp delete_user_biddings(user_id) do
-      user_id
-      |> ItemBid.get_user_bids()
-      |> Enum.map(&Map.get(&1, :id))
-      |> Enum.map(&ItemBid.delete/1)
-
-      Logger.debug("User's (#{user_id}) bids deleted")
-
-      user_id
-    end
-
-    defp delete_user_auction_items(user_id) do
-      user_id
-      |> AuctionItem.get_user_items()
-      |> Enum.map(&Map.get(:id, &1))
-      |> Enum.each(&AuctionItem.delete/1)
-
-      Logger.debug("User's (#{user_id}) auction items deleted")
-
-      user_id
     end
 
     defp delete_user_categories(user_id) do
@@ -483,7 +460,7 @@ defdatabase BiddingPoc.Database do
             inserted_at: DateTime.t()
           }
 
-    alias BiddingPoc.Database.{User, ItemBid}
+    alias BiddingPoc.Database.{User, AuctionBid, UserInAuction}
 
     require Logger
     require Protocol
@@ -594,8 +571,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_user_items(pos_integer()) :: [t()]
-    def get_user_items(user_id) when is_number(user_id) do
+    @spec get_user_auctions(pos_integer()) :: [t()]
+    def get_user_auctions(user_id) when is_number(user_id) do
       Amnesia.transaction do
         match(user_id: user_id)
         |> Amnesia.Selection.values()
@@ -615,7 +592,7 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec update_auction(t(), pos_integer()) :: {:ok, t()} | {:error, :not_found | :user_not_found | :forbidden}
-    def update_auction(auction_item, user_id) do
+    def update_auction(%AuctionItem{} = auction_item, user_id) when is_number(user_id) do
       Amnesia.transaction do
         with {:user, {:ok, user}} <- {:user, User.get_by_id(user_id)},
              {:auction, {:ok, found}} <- {:auction, get_by_id(auction_item.id)},
@@ -635,7 +612,7 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec place_bid(pos_integer(), pos_integer() | atom(), pos_integer()) ::
-            {:ok, ItemBid.t()}
+            {:ok, AuctionBid.t()}
             | {:error, :not_found | :small_bid | :bidding_ended | :item_postponed}
     def place_bid(auction_id, user_id, amount)
         when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
@@ -645,7 +622,7 @@ defdatabase BiddingPoc.Database do
         if auction == nil do
           {:error, :not_found}
         else
-          case item_bidding_status(auction) do
+          case auction_bidding_status(auction) do
             {:ok, :ongoing} ->
               case try_add_bid(auction.id, user_id, amount) do
                 {:ok, _} = res ->
@@ -662,20 +639,6 @@ defdatabase BiddingPoc.Database do
             {:ok, :ended} ->
               {:error, :bidding_ended}
           end
-        end
-      end
-    end
-
-    @spec delete_auction(number) :: {:ok, t()} | {:error, :not_found}
-    def delete_auction(auction_id) when is_number(auction_id) do
-      Amnesia.transaction do
-        existing = read(auction_id)
-
-        if existing == nil do
-          {:error, :not_found}
-        else
-          delete(auction_id)
-          {:ok, existing}
         end
       end
     end
@@ -714,6 +677,31 @@ defdatabase BiddingPoc.Database do
       end
     end
 
+    @spec delete_auction(pos_integer()) :: {:ok, t()} | {:error, :not_found}
+    def delete_auction(auction_id) when is_number(auction_id) do
+      Amnesia.transaction do
+        existing = read(auction_id)
+
+        if existing == nil do
+          {:error, :not_found}
+        else
+          AuctionBid.delete_auction_bids(auction_id)
+          UserInAuction.delete_auction_users(auction_id)
+
+          delete(auction_id)
+          {:ok, existing}
+        end
+      end
+    end
+
+    @spec delete_user_auctions(pos_integer()) :: :ok
+    def delete_user_auctions(user_id) when is_number(user_id) do
+      user_id
+      |> get_user_auctions()
+      |> Enum.map(& &1.id)
+      |> Enum.each(&delete_auction/1)
+    end
+
     defp parse_auction_item_record(
            {AuctionItem, id, user_id, title, category_id, start_price, minimum_bid_step, bidding_start, bidding_end,
             inserted_at}
@@ -732,10 +720,10 @@ defdatabase BiddingPoc.Database do
     end
 
     defp try_add_bid(auction_id, user_id, amount) do
-      if ItemBid.is_amount_highest?(auction_id, amount) do
+      if AuctionBid.is_amount_highest?(auction_id, amount) do
         new_bind =
-          ItemBid.new_bid(auction_id, user_id, amount)
-          |> ItemBid.write()
+          AuctionBid.new_bid(auction_id, user_id, amount)
+          |> AuctionBid.write()
 
         {:ok, new_bind}
       else
@@ -743,9 +731,9 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec item_bidding_status(t()) ::
+    @spec auction_bidding_status(t()) ::
             {:ok, :ended | :ongoing | :postponed} | {:error, binary(), t()}
-    defp item_bidding_status(auction) do
+    defp auction_bidding_status(auction) do
       now = DateTime.now!(Common.timezone())
       bidding_start_comparison = DateTime.compare(auction.bidding_start, now)
 
@@ -766,14 +754,14 @@ defdatabase BiddingPoc.Database do
   end
 
   deftable(
-    ItemBid,
+    AuctionBid,
     [{:id, autoincrement}, :user_id, :auction_id, :inserted_at, :amount],
     type: :ordered_set,
     index: [:auction_id, :amount]
   ) do
     @type cents() :: pos_integer()
 
-    @type t() :: %ItemBid{
+    @type t() :: %AuctionBid{
             id: pos_integer(),
             user_id: pos_integer(),
             auction_id: pos_integer(),
@@ -850,12 +838,29 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec new_bid(pos_integer(), pos_integer(), pos_integer()) :: t()
+    @spec delete_user_bids(pos_integer()) :: :ok
+    def delete_user_bids(user_id) when is_number(user_id) do
+      user_id
+      |> get_user_bids()
+      |> Enum.map(& &1.id)
+      |> Enum.each(&delete/1)
+    end
+
+    @spec delete_auction_bids(pos_integer()) :: :ok
+    def delete_auction_bids(auction_id) when is_number(auction_id) do
+      Amnesia.transaction do
+        match(auction_id: auction_id)
+        |> Enum.map(& &1.id)
+        |> Enum.each(&delete/1)
+      end
+    end
+
+    @spec new_bid(pos_integer() | nil, pos_integer(), pos_integer()) :: t()
     @doc """
     Returns new struct with given data
     """
-    def new_bid(auction_id, user_id, amount) do
-      %ItemBid{
+    def new_bid(auction_id, user_id, amount) when is_number(auction_id) and is_number(user_id) and is_number(amount) do
+      %AuctionBid{
         auction_id: auction_id,
         user_id: user_id,
         amount: amount,
@@ -863,7 +868,7 @@ defdatabase BiddingPoc.Database do
       }
     end
 
-    defp get_user_from_bid(%ItemBid{user_id: user_id}) do
+    defp get_user_from_bid(%AuctionBid{user_id: user_id}) do
       User.get_by_id(user_id)
     end
   end
@@ -928,7 +933,7 @@ defdatabase BiddingPoc.Database do
             {:ok, :removed}
 
           [%{joined: true} = x] ->
-            case ItemBid.get_user_auction_bids(auction_id, user_id) do
+            case AuctionBid.get_user_auction_bids(auction_id, user_id) do
               [] ->
                 x
                 |> Map.put(:joined, false)
@@ -943,9 +948,18 @@ defdatabase BiddingPoc.Database do
       end
     end
 
+    @spec delete_auction_users(pos_integer()) :: :ok
+    def delete_auction_users(auction_id) when is_number(auction_id) do
+      Amnesia.transaction do
+        match(auction_id: auction_id)
+        |> Enum.map(& &1.id)
+        |> Enum.each(&delete/1)
+      end
+    end
+
     @spec toggle_followed_auction(pos_integer(), pos_integer()) ::
             {:ok, :following | :not_following} | {:error, :joined}
-    def toggle_followed_auction(auction_id, user_id) do
+    def toggle_followed_auction(auction_id, user_id) when is_number(auction_id) and is_number(user_id) do
       Amnesia.transaction do
         match(auction_id: auction_id, user_id: user_id)
         |> Amnesia.Selection.values()

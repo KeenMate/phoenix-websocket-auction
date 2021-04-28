@@ -1,6 +1,8 @@
 defmodule BiddingPocWeb.UserChannel do
   use BiddingPocWeb, :channel
 
+  import BiddingPocWeb.SocketHelpers
+
   alias BiddingPoc.UserPublisher
 
   def join("user:" <> user_id, _payload, socket) do
@@ -35,9 +37,5 @@ defmodule BiddingPocWeb.UserChannel do
     UserPublisher.subscribe_user_pubsub(get_user_id(socket))
 
     {:noreply, socket}
-  end
-
-  defp get_user_id(socket) do
-    socket.assigns.user.id
   end
 end

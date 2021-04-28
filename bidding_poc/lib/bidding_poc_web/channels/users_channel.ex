@@ -3,6 +3,8 @@ defmodule BiddingPocWeb.UsersChannel do
 
   require Logger
 
+  import BiddingPocWeb.SocketHelpers
+
   alias BiddingPoc.User
 
   def join("users:lobby", _payload, socket) do
@@ -62,9 +64,5 @@ defmodule BiddingPocWeb.UsersChannel do
 
   defp is_admin?(socket) do
     socket.assigns.user.is_admin
-  end
-
-  defp get_user_id(socket) do
-    socket.assigns.user.id
   end
 end

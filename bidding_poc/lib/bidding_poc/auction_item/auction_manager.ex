@@ -72,7 +72,7 @@ defmodule BiddingPoc.AuctionManager do
         |> AuctionItem.delete_auction()
         |> case do
           {:ok, deleted} = res ->
-            AuctionPublisher.broadcast_item_removed(deleted)
+            AuctionPublisher.broadcast_auction_deleted(deleted)
             res
 
           {:error, :not_found} = error ->

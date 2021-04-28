@@ -18,10 +18,10 @@
  - [RR] update auction
  - [RR] delete auction
  - auction added (based on user's preference)
- - auction removed (based on user's preference)
+ - auction deleted (based on user's preference)
 
 ### Auction
- - [RR] get detail
+ - [RR] get auction detail
  - [RR] join auction
  - [RR] leave auction
  - detail updated (optional - not yet mandatory)
@@ -30,7 +30,12 @@
  - bid averaged
  - bid placed (only if user opts in for this)
 
-### User presence
+### User presence (per auction)
+ - [FaF] toggle follow auction
+ - follow toggled
+ - presence_sync/diff (user status changed: joined/followed/(nothing - just watching))
+
+### User presence (some global presence)
  - [FaF] friendify/unfriendify user
  - user user status changed
  - user auction status changed

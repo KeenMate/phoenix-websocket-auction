@@ -3,6 +3,8 @@ defmodule BiddingPocWeb.AuctionsChannel do
 
   require Logger
 
+  import BiddingPocWeb.SocketHelpers
+
   alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserFollowedCategory, UserInAuction}
 
   alias BiddingPoc.{AuctionManager, UserManager}
@@ -37,10 +39,8 @@ defmodule BiddingPocWeb.AuctionsChannel do
     end
   end
 
-  def handle_in("get_auction_items", params, socket) do
-    items = AuctionManager.get_auction_items(params)
-
-    {:reply, {:ok, items}, socket}
+  def handle_in("get_auctions", params, socket) do
+    {:reply, {:ok, AuctionManager.get_auctions(params)}, socket}
   end
 
   def handle_in("get_auction_categories", _payload, socket) do
@@ -117,6 +117,4 @@ defmodule BiddingPocWeb.AuctionsChannel do
     |> Map.get(:category_id)
     |> UserFollowedCategory.category_followed_by_user?(user_id)
   end
-
-  defp get_user_id(%{assigns: %{user: %{id: user_id}}}), do: user_id
 end

@@ -3,7 +3,9 @@ defmodule BiddingPocWeb.BiddingChannel do
 
   require Logger
 
-  alias BiddingPoc.Database.{AuctionItem, UserInAuction, ItemBid}
+  import BiddingPocWeb.SocketHelpers
+
+  alias BiddingPoc.Database.{AuctionItem, UserInAuction, AuctionBid}
   alias BiddingPoc.AuctionManager
   alias BiddingPoc.AuctionPublisher
   alias BiddingPoc.UserStoreAgent
@@ -71,7 +73,7 @@ defmodule BiddingPocWeb.BiddingChannel do
           assign(socket, :user_status, "joined")
       end
 
-    setup_presence(new_socket)
+    # setup_presence(new_socket)
 
     # send init data to client
     new_socket
@@ -98,18 +100,18 @@ defmodule BiddingPocWeb.BiddingChannel do
     socket
   end
 
-  defp setup_presence(socket) do
-    user_id = get_user_id(socket)
+  # defp setup_presence(socket) do
+  #   user_id = get_user_id(socket)
 
-    push(socket, "presence_state", get_item_users(socket))
+  #   push(socket, "presence_state", get_item_users(socket))
 
-    Presence.track(socket, user_id, %{
-      id: user_id,
-      username: socket.assigns.user.username,
-      display_name: socket.assigns.user.display_name,
-      user_status: socket.assigns.user_status
-    })
-  end
+  #   Presence.track(socket, user_id, %{
+  #     id: user_id,
+  #     username: socket.assigns.user.username,
+  #     display_name: socket.assigns.user.display_name,
+  #     user_status: socket.assigns.user_status
+  #   })
+  # end
 
   defp push_auction_item(socket) do
     socket
@@ -136,7 +138,7 @@ defmodule BiddingPocWeb.BiddingChannel do
     biddings =
       socket
       |> get_item_biddings()
-      |> ItemBid.with_data()
+      |> AuctionBid.with_data()
       |> Enum.map(&Map.from_struct/1)
 
     push(socket, "biddings", %{biddings: biddings})
@@ -146,38 +148,6 @@ defmodule BiddingPocWeb.BiddingChannel do
   defp get_item_biddings(socket) do
     socket
     |> get_auction_id()
-    |> ItemBid.get_item_bids()
-  end
-
-  defp get_item_users(socket) do
-    Presence.list(socket)
-  end
-
-  defp get_user_status(socket) do
-    UserInAuction.get_user_status(get_auction_id(socket), get_user_id(socket))
-    |> case do
-      {:ok, status} ->
-        status
-
-      {:error, :not_found} ->
-        :nothing
-    end
-  end
-
-  defp put_auction_id(socket, auction_id) do
-    assign(socket, :auction_id, auction_id)
-  end
-
-  defp get_auction_id(socket) do
-    socket
-    |> Map.get(:assigns)
-    |> Map.get(:auction_id)
-  end
-
-  defp get_user_id(socket) do
-    socket
-    |> Map.get(:assigns)
-    |> Map.get(:user, %{})
-    |> Map.get(:id)
+    |> AuctionBid.get_item_bids()
   end
 end

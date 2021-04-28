@@ -3,7 +3,7 @@ defmodule BiddingPocWeb.AuctionItemController do
 
   require Logger
 
-  alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, ItemBid}
+  alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, AuctionBid}
   alias BiddingPoc.AuctionManager
 
   def index(conn, params) do
@@ -52,7 +52,7 @@ defmodule BiddingPocWeb.AuctionItemController do
     parsed_auction_id = String.to_integer(auction_id)
 
     with {:ok, auction} <- AuctionItem.get_by_id(parsed_auction_id),
-         {:ok, biddings} <- ItemBid.get_item_bids(parsed_auction_id) do
+         {:ok, biddings} <- AuctionBid.get_item_bids(parsed_auction_id) do
       conn
       |> put_status(:ok)
       |> json(%{
