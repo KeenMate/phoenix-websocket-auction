@@ -30,15 +30,25 @@ defmodule BiddingPocWeb.AuctionPresenceChannel do
 
   @impl true
   def handle_in("toggle_follow", _paylaod, socket) do
-    AuctionManager.toggle_follow_auction(get_auction_id(socket), get_user_id(socket))
-    {:noreply, socket}
+    new_socket =
+      AuctionManager.toggle_follow_auction(get_auction_id(socket), get_user_id(socket))
+      |> case do
+        {:ok, status} when status in [:following, :not_following] ->
+          put_user_status(socket, status)
+
+        {:error, :joined} ->
+          socket
+      end
+
+    update_presence_user_status(new_socket)
+
+    {:noreply, new_socket}
   end
 
   @impl true
   def handle_info(:after_join, socket) do
     user_id = get_user_id(socket)
     auction_id = get_auction_id(socket)
-    setup_presence(socket)
 
     new_socket =
       case UserInAuction.get_user_status(auction_id, user_id) do
@@ -51,6 +61,8 @@ defmodule BiddingPocWeb.AuctionPresenceChannel do
         {:ok, :joined} ->
           put_user_status(socket, :joined)
       end
+
+    setup_presence(new_socket)
 
     setup_subscriptions(new_socket)
 
@@ -67,7 +79,6 @@ defmodule BiddingPocWeb.AuctionPresenceChannel do
   end
 
   defp setup_subscriptions(socket) do
-    AuctionPublisher.subscribe_auction_topic(get_auction_id(socket))
     AuctionPublisher.subscribe_auction_user_presence(get_auction_id(socket), get_user_id(socket))
   end
 

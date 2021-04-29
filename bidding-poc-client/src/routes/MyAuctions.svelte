@@ -1,8 +1,8 @@
 <script>
 	import {push, querystring, location} from "svelte-spa-router"
 	import {parse, stringify} from "qs"
-	import {getAuctionCategories} from "../providers/socket/auction"
-	import {getAuctionItems} from "../providers/socket/auction"
+	import {getAuctionCategories} from "../providers/socket/auctions"
+	import {getAuctions} from "../providers/socket/auctions"
 	import {stringToNumber} from "../helpers/parser"
 	import AuctionCategoriesMenu from "../components/auctions/AuctionCategoriesMenu.svelte"
 	import AuctionItemList from "../components/auctions/AuctionItemList.svelte"
@@ -23,7 +23,7 @@
 			console.error("Could not load auction categories", error)
 			toastr.error("Could not load auction categories")
 		})
-	$: auctionItemsTask = getAuctionItems(searchText, selectedCategory, page, pageSize)
+	$: auctionItemsTask = getAuctions(searchText, selectedCategory, page, pageSize)
 
 	function onSelectCategory({detail: category}) {
 		const newPartial = {...parsedQuerystring, category: category && category.id || undefined}

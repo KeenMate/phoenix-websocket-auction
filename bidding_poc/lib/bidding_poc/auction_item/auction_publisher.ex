@@ -5,72 +5,74 @@ defmodule BiddingPoc.AuctionPublisher do
 
   # BROADCASTS
 
-  @spec broadcast_auction_created(AuctionItem.t()) :: :ok | {:error, any}
-  def broadcast_auction_created(auction_item) do
+  @spec broadcast_auction_created(AuctionItem.t()) :: :ok | {:error, any()}
+  def broadcast_auction_created(auction) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
       auctions_topic(),
-      {:auction_added, auction_item}
+      {:auction_added, auction}
     )
   end
 
   @spec broadcast_auction_deleted(AuctionItem.t()) :: :ok | {:error, any()}
-  def broadcast_auction_deleted(auction_item) do
+  def broadcast_auction_deleted(auction) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
       auctions_topic(),
-      {:auction_deleted, auction_item}
+      {:auction_deleted, auction}
     )
   end
 
   @spec broadcast_auction_updated(AuctionItem.t()) :: :ok | {:error, any()}
-  def broadcast_auction_updated(auction_item) do
+  def broadcast_auction_updated(auction) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auction_item_topic(auction_item.id),
-      {:detail_updated, auction_item}
+      auction_topic(auction.id),
+      {:detail_updated, auction}
     )
   end
 
-  @spec broadcast_bidding_started(AuctionItem.t()) :: :ok | {:error, any()}
-  def broadcast_bidding_started(auction) do
+  @spec broadcast_bidding_started(pos_integer()) :: :ok | {:error, any()}
+  def broadcast_bidding_started(auction_id) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auctions_topic(),
-      {:bidding_started, auction}
+      auction_topic(auction_id),
+      :bidding_started
     )
   end
 
-  @spec broadcast_bidding_ended(AuctionItem.t()) :: :ok | {:error, any()}
-  def broadcast_bidding_ended(auction) do
+  @spec broadcast_bidding_ended(pos_integer()) :: :ok | {:error, any()}
+  def broadcast_bidding_ended(auction_id) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auctions_topic(),
-      {:bidding_ended, auction}
+      auction_topic(auction_id),
+      :bidding_ended
     )
   end
 
-  @spec broadcast_bid_placed(AuctionBid.t()) :: :ok | {:error, any}
+  @spec broadcast_bid_placed(AuctionBid.t()) :: :ok | {:error, any()}
   def broadcast_bid_placed(auction_bid) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auction_item_topic(auction_bid.auction_id),
+      auction_bidding_topic(auction_bid.auction_id),
       {:bid_placed, auction_bid}
     )
   end
 
-  def broadcast_auction_average_bid_changed(new_average_bid) do
+  @spec broadcast_auction_average_bid_changed(float(), pos_integer()) :: :ok | {:error, any()}
+  def broadcast_auction_average_bid_changed(auction_id, new_average_bid) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auctions_topic(),
+      auction_topic(auction_id),
       {:average_bid, new_average_bid}
     )
   end
 
+  @spec broadcast_auction_user_status_changed(pos_integer(), pos_integer(), :following | :nothing | :joined) :: :ok | {:error, any}
   def broadcast_auction_user_status_changed(auction_id, user_id, status) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionUserStatusPubSub,
-      user_auction_presence(auction_id, user_id),
+      user_auction_presence_topic(auction_id, user_id),
       {:user_status_changed, status}
     )
   end
@@ -78,7 +80,11 @@ defmodule BiddingPoc.AuctionPublisher do
   # SUBSCRIPTIONS
 
   def subscribe_auction_topic(auction_id) do
-    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auction_item_topic(auction_id))
+    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auction_topic(auction_id))
+  end
+
+  def subscribe_auction_bidding_topic(auction_id) do
+    Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auction_bidding_topic(auction_id))
   end
 
   def subscribe_auctions_topic() do
@@ -88,7 +94,7 @@ defmodule BiddingPoc.AuctionPublisher do
   def subscribe_auction_user_presence(auction_id, user_id) do
     Phoenix.PubSub.subscribe(
       BiddingPoc.AuctionUserStatusPubSub,
-      user_auction_presence(auction_id, user_id)
+      user_auction_presence_topic(auction_id, user_id)
     )
   end
 
@@ -98,11 +104,15 @@ defmodule BiddingPoc.AuctionPublisher do
     "auctions"
   end
 
-  def auction_item_topic(auction_id) do
+  def auction_topic(auction_id) do
     "auction:#{auction_id}"
   end
 
-  def user_auction_presence(auction_id, user_id) do
+  def auction_bidding_topic(auction_id) do
+    "auction_bidding:#{auction_id}"
+  end
+
+  def user_auction_presence_topic(auction_id, user_id) do
     "auction_presence:#{auction_id}:#{user_id}"
   end
 end

@@ -1,6 +1,8 @@
 defmodule BiddingPocWeb.SocketHelpers do
   import Phoenix.Socket
 
+  alias BiddingPocWeb.Presence
+
   def put_user_status(socket, value) when value in [:following, :joined, :nothing] do
     assign(socket, :user_status, value)
   end

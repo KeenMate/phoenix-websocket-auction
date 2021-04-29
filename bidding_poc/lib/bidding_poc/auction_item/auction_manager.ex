@@ -11,11 +11,11 @@ defmodule BiddingPoc.AuctionManager do
           {:ok, AuctionItem.t()} | {:error, :id_filled | :title_used}
   def create_auction(params, user_id) do
     params
-    |> new_item_from_params!()
+    |> new_auction_from_params!()
     |> AuctionItem.create_auction(user_id)
     |> case do
-      {:ok, new_item} = res ->
-        star_auction_item_server(new_item.id, true)
+      {:ok, new_auction} = res ->
+        start_auction_item_server(new_auction.id, true)
         res
 
       {:error, :id_filled} = error ->
@@ -34,14 +34,14 @@ defmodule BiddingPoc.AuctionManager do
     skip = Map.get(params, "skip")
     take = Map.get(params, "take")
 
-    AuctionItem.get_last_items(search, category_id, skip, take)
+    AuctionItem.get_last_auctions(search, category_id, skip, take)
   end
 
   @spec update_auction(map(), pos_integer()) ::
           {:ok, AuctionItem.t()} | {:error, :forbidden | :not_found | :user_not_found}
   def update_auction(params, user_id) do
     params
-    |> new_item_from_params!()
+    |> new_auction_from_params!()
     |> AuctionItem.update_auction(user_id)
     |> case do
       {:ok, updated} = res ->
@@ -68,33 +68,30 @@ defmodule BiddingPoc.AuctionManager do
   @spec toggle_follow_auction(pos_integer(), pos_integer()) :: Task.t()
   @doc """
   This functions toggles the follow relation between auction and user.
-  Runs asynchronously.
   """
   def toggle_follow_auction(auction_id, user_id) do
-    # Task.async(fn ->
     UserInAuction.toggle_followed_auction(auction_id, user_id)
-    # |> case do
-    #   {:error, :joined} = error ->
-    #     error
+    |> case do
+      {:ok, status} = res ->
+        AuctionPublisher.broadcast_auction_user_status_changed(
+          auction_id,
+          user_id,
+          case status do
+            :not_following -> :nothing
+            x -> x
+          end
+        )
 
-    #   {:ok, status} = res ->
-    #     AuctionPublisher.broadcast_auction_user_status_changed(
-    #       auction_id,
-    #       user_id,
-    #       status
-    #     )
+        res
 
-    #     res
-    # end
-
-    # end)
+      other -> other
+    end
   end
 
   def join_auction(auction_id, user_id) do
-    # Task.async(fn ->
     UserInAuction.add_user_to_auction(auction_id, user_id)
     |> case do
-      {:ok, _} = result ->
+      {:ok, %{joined: true}} = result ->
         AuctionPublisher.broadcast_auction_user_status_changed(
           auction_id,
           user_id,
@@ -106,12 +103,9 @@ defmodule BiddingPoc.AuctionManager do
       {:error, :exists} = error ->
         error
     end
-
-    # end)
   end
 
   def leave_auction(auction_id, user_id) do
-    # Task.async(fn ->
     UserInAuction.remove_user_from_auction(auction_id, user_id)
     |> case do
       {:ok, status} = res ->
@@ -129,8 +123,6 @@ defmodule BiddingPoc.AuctionManager do
       other ->
         other
     end
-
-    # end)
   end
 
   @spec place_bid(pos_integer(), pos_integer() | :system, pos_integer()) ::
@@ -174,8 +166,8 @@ defmodule BiddingPoc.AuctionManager do
     end
   end
 
-  @spec new_item_from_params!(map()) :: AuctionItem.t()
-  def new_item_from_params!(params) do
+  @spec new_auction_from_params!(map()) :: AuctionItem.t()
+  def new_auction_from_params!(params) do
     %AuctionItem{
       title: params["title"],
       category_id: params["category_id"],
@@ -186,7 +178,7 @@ defmodule BiddingPoc.AuctionManager do
     }
   end
 
-  def star_auction_item_server(auction_id, initially_started) do
+  def start_auction_item_server(auction_id, initially_started) do
     DynamicSupervisor.start_child(
       AuctionItemSupervisor,
       auction_item_server_spec(auction_id, initially_started)

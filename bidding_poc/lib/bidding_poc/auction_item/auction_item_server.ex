@@ -57,7 +57,7 @@ defmodule BiddingPoc.AuctionItemServer do
           broadcast_bid_placed_error(user_id, error)
           state
 
-        {:error, :item_postponed} = error ->
+        {:error, :auction_postponed} = error ->
           broadcast_bid_placed_error(user_id, error)
           state
       end
@@ -68,13 +68,13 @@ defmodule BiddingPoc.AuctionItemServer do
   @impl true
   def handle_info(:bidding_started, %{auction: auction} = state) do
     place_bid(auction.id, :initial_bid, auction.start_price)
-    AuctionPublisher.broadcast_bidding_started(auction)
+    AuctionPublisher.broadcast_bidding_started(auction.id)
 
     {:noreply, state}
   end
 
   def handle_info(:bidding_ended, %{auction: auction} = state) do
-    AuctionPublisher.broadcast_bidding_ended(auction)
+    AuctionPublisher.broadcast_bidding_ended(auction.id)
     {:noreply, state}
   end
 
@@ -135,6 +135,8 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp register_bidding_started(%AuctionItem{} = auction, initialy_started) do
+    Logger.debug("[PES]: Registering bidding started reminder. process: #{inspect(self())}")
+
     now = DateTime.now!(Common.timezone())
     start = auction.bidding_start
 
@@ -163,7 +165,7 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp broadcast_bid_average_changed(state) do
-    AuctionPublisher.broadcast_auction_average_bid_changed(state.bids_average)
+    AuctionPublisher.broadcast_auction_average_bid_changed(state.bids_average, state.auction_id)
 
     state
   end

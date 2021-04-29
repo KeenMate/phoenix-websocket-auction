@@ -3,7 +3,7 @@
 	import {push} from "svelte-spa-router"
 	import m from "moment"
 	import {getAuctionItemUrl} from "../routes"
-	import {createAuction, getAuctionCategories} from "../providers/socket/auction"
+	import {createAuction, getAuctionCategories} from "../providers/socket/auctions"
 	import toastr from "../helpers/toastr-helpers"
 	import TextInput from "../components/forms/TextInput.svelte"
 	import NumberInput from "../components/forms/NumberInput.svelte"
@@ -15,7 +15,6 @@
 	let startPrice = 0
 	let minimumBidStep = 10
 	let biddingEnd = m().add(3, "minute").toDate()
-	// minutes
 	let postponedFor = null
 
 	let loading = false
@@ -34,12 +33,6 @@
 		}
 
 		loading = true
-
-		// console.log("Create item ", title,
-		// 	categoryId,
-		// 	startPrice,
-		// 	biddingStart,
-		// 	biddingEnd)
 
 		createAuction({
 			title,

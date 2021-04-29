@@ -28,3 +28,15 @@ export function pushSocketMessage(channel, type, payload = {}) {
 			})
 	})
 }
+
+export function joinChannel(channel, resolveWith) {
+	return new Promise((resolve, reject) =>
+		channel.join()
+			.receive("ok", () => {
+				resolve(resolveWith || channel)
+			})
+			.receive("error", reason => {
+				reject({channel, reason})
+			})
+	)
+}

@@ -24,7 +24,7 @@ defmodule BiddingPoc.StartAuctionServersTask do
 
   defp start_auction_item_server(auction_item) do
     debug_log("Starting auction #{auction_item.id}")
-    AuctionManager.star_auction_item_server(auction_item.id, false)
+    AuctionManager.start_auction_item_server(auction_item.id, false)
   end
 
   defp auction_item_running?(auction_item) do

@@ -5,7 +5,7 @@
 	import toastr from "./helpers/toastr-helpers"
 	import routes, {Urls} from "./routes"
 	import {authTokenStore, userStore} from "./providers/auth"
-	import {auctionChannel, initAuctionChannel} from "./providers/socket/auction"
+	import {auctionChannel, initAuctionsChannel} from "./providers/socket/auctions"
 	import {initUserChannel, initUsersChannel, usersChannel} from "./providers/socket/user"
 	import {getCurrentUser} from "./providers/user"
 	import {createSocket, socket} from "./providers/socket/common"
@@ -59,7 +59,7 @@
 			socket.set(newSocket)
 			newSocket.connect()
 
-			initAuctionChannel(newSocket).then(auctionChannel.set)
+			initAuctionsChannel(newSocket).then(auctionChannel.set)
 			initUsersChannel(newSocket).then(usersChannel.set)
 			console.log("User is", get(userStore))
 			initUserChannel(

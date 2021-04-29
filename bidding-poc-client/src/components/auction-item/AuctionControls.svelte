@@ -11,7 +11,7 @@
 	<p class="control">
 		{#if user_status !== "joined"}
 			<TheButton on:click={() => dispatch("toggleWatch")}>
-				{#if user_status === "watching"}
+				{#if user_status === "following"}
 					Unwatch
 				{:else if user_status === "nothing"}
 					Watch

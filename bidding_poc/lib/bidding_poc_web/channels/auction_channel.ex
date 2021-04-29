@@ -12,9 +12,8 @@ defmodule BiddingPocWeb.AuctionChannel do
   alias BiddingPoc.UserStoreAgent
 
   @impl true
-  def join("auction:" <> auction_id, _payload, socket) do
-    send(self(), :after_join)
-
+  def join("auction:" <> auction_id, payload, socket) do
+    include_bid_placed = Map.get(payload, "include_bid_placed", false)
     auction_id
     |> Integer.parse()
     |> case do
@@ -22,12 +21,21 @@ defmodule BiddingPocWeb.AuctionChannel do
         {:error, :invalid_auction_id}
 
       {parsed_auction_id, _} ->
-        {
-          :ok,
-          socket
-          |> put_auction_id(parsed_auction_id)
-          |> put_user_status(:nothing)
-        }
+        parsed_auction_id
+        |> AuctionItem.member?()
+        |> if do
+          send(self(), :after_join)
+
+          {
+            :ok,
+            socket
+            |> put_auction_id(parsed_auction_id)
+            |> put_include_bid_placed(include_bid_placed)
+            |> put_user_status(:nothing)
+          }
+        else
+          {:error, :not_found}
+        end
     end
   end
 
@@ -74,8 +82,8 @@ defmodule BiddingPocWeb.AuctionChannel do
 
       {:ok, status} = res ->
         new_socket =
-          socket
-          |> put_user_status(
+          put_user_status(
+            socket,
             case status do
               :following -> :following
               :not_following -> :nothing
@@ -108,31 +116,47 @@ defmodule BiddingPocWeb.AuctionChannel do
     {:noreply, socket}
   end
 
-  def handle_info(:after_join, socket) do
-    auction_id = get_auction_id(socket)
-    # {:ok, _} = Presence.track(socket, get_user_id(socket), %{})
-
-    # new_socket =
-    #   case UserInAuction.get_user_status(auction_id, user_id) do
-    #     {:error, :not_found} ->
-    #       put_user_status(socket, :nothing)
-
-    #     {:ok, :following} ->
-    #       put_user_status(socket, :following)
-
-    #     {:ok, :joined} ->
-    #       put_user_status(socket, :joined)
-    #   end
-
-    UserStoreAgent.set_current_auction(get_user_id(socket), get_auction_id(socket))
-
-    AuctionPublisher.subscribe_auction_topic(auction_id)
+  def handle_info({:bid_placed, auction_bid}, socket) do
+    push(socket, "bid_placed", auction_bid)
 
     {:noreply, socket}
   end
 
+  def handle_info(:after_join, socket) do
+    user_id = get_user_id(socket)
+    auction_id = get_auction_id(socket)
+
+    new_socket =
+      case UserInAuction.get_user_status(auction_id, user_id) do
+        {:ok, status} ->
+          put_user_status(socket, status)
+
+        {:error, :not_found} ->
+          put_user_status(socket, :nothing)
+      end
+
+    push_auction_item(new_socket)
+
+    UserStoreAgent.set_current_auction(user_id, auction_id)
+
+    if bid_placed_included?(new_socket) do
+      AuctionPublisher.subscribe_auction_bidding_topic(auction_id)
+    end
+
+    AuctionPublisher.subscribe_auction_topic(auction_id)
+
+    {:noreply, new_socket}
+  end
+
   @impl true
-  def terminate({:shutdown, _}, socket) do
+  def terminate({:shutdown, reason}, socket) do
+    Logger.debug("Auction channel is shutting down with reason: #{inspect(reason)}")
+    UserStoreAgent.clear_current_auction(get_user_id(socket))
+    :ok
+  end
+
+  def terminate(:shutdown, socket) do
+    Logger.warn("Auction channel is just shutting down")
     UserStoreAgent.clear_current_auction(get_user_id(socket))
     :ok
   end
@@ -145,9 +169,38 @@ defmodule BiddingPocWeb.AuctionChannel do
       UserInAuction.user_in_auction?(auction_item.id, user_id)
   end
 
+  defp push_auction_item(socket) do
+    socket
+    |> get_auction_id()
+    |> AuctionItem.with_data()
+    |> case do
+      {:ok, %AuctionItem{} = auction_with_data} ->
+        updated_auction_with_data =
+          auction_with_data
+          |> Map.put(:user_status, get_user_status(socket))
+
+        push(socket, "auction_data", Map.from_struct(updated_auction_with_data))
+
+      {:error, reason} when reason in [:auction_not_found, :user_not_found, :category_not_found] ->
+        Logger.error(
+          "Unexpected error occured while loading auction item that has an active ws channel"
+        )
+    end
+
+    socket
+  end
+
   defp category_followed_by_user?(user_id, auction_item) do
     auction_item
     |> Map.get(:category_id)
     |> UserFollowedCategory.category_followed_by_user?(user_id)
+  end
+
+  defp bid_placed_included?(socket) do
+    Map.get(socket.assigns, :include_bid_placed, false)
+  end
+
+  defp put_include_bid_placed(socket, include_bid_placed) do
+    assign(socket, :include_bid_placed, include_bid_placed)
   end
 end

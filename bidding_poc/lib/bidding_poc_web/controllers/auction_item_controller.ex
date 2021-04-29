@@ -20,7 +20,7 @@ defmodule BiddingPocWeb.AuctionItemController do
     conn
     |> put_status(:ok)
     |> json(
-      AuctionItem.get_last_items(skip, take)
+      AuctionItem.get_last_auctions(skip, take)
       |> Enum.map(&Map.from_struct/1)
     )
   end
@@ -52,7 +52,7 @@ defmodule BiddingPocWeb.AuctionItemController do
     parsed_auction_id = String.to_integer(auction_id)
 
     with {:ok, auction} <- AuctionItem.get_by_id(parsed_auction_id),
-         {:ok, biddings} <- AuctionBid.get_item_bids(parsed_auction_id) do
+         {:ok, biddings} <- AuctionBid.get_auction_bids(parsed_auction_id) do
       conn
       |> put_status(:ok)
       |> json(%{

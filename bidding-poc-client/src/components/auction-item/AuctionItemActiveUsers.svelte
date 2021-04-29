@@ -3,15 +3,10 @@
 
 	export let users = []
 
-	$: biddingUsers = users && users.filter(x => userJoined(x)) || []
-	$: watchingUsers = users && users.filter(x => !userJoined(x)) || []
-
-	function userJoined(user) {
-		return user.user_status === "joined"
-	}
+	$: biddingUsers = users && users.filter(x => x.user_status === "joined") || []
+	$: followingUsers = users && users.filter(x => x.user_status === "following") || []
 </script>
 
-<!--{@debug users}-->
 <aside class="menu">
 	<p class="menu-label">
 		Bidding users ({biddingUsers.length})
@@ -24,10 +19,10 @@
 		{/each}
 	</ul>
 	<p class="menu-label">
-		Watching users ({watchingUsers.length})
+		Following users ({followingUsers.length})
 	</p>
 	<ul class="menu-list">
-		{#each watchingUsers as user}
+		{#each followingUsers as user}
 			<li>
 				<UserLink {user} />
 			</li>

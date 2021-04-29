@@ -7,35 +7,51 @@
 	import TheButton from "../ui/TheButton.svelte"
 
 	const dispatch = createEventDispatcher()
-	
+
 	export let userStatus = "nothing"
-	export let itemId = null
+	export let auctionId = null
 	export let ownerId = null
 	export let lastBid = null
 
 	let currentBid = 0
 	let amountFocused = false
 	let blocked = false
-	
-	$: if (userStatus === "joined" && lastBid) {
-		if (amountFocused) {
-			if (currentBid < lastBid.amount) {
+
+	$: onLastBidChanged(lastBid)
+	$: onFocusChanged(amountFocused)
+
+	$: isAuthor = $userStore && $userStore.id === ownerId
+	$: isAuthorOfLastBid = (lastBid && lastBid.user_id) === ($userStore && $userStore.id || "not_matching")
+
+	function onLastBidChanged(bid) {
+		if (amountFocused || !bid)
+			return
+
+		if (currentBid < lastBid.amount) {
+			if (currentBid) {
 				toastr.warning("Your bid is too small (updated to the next minimal bid)")
-				
-				// todo: Use Auction's min_step value when it becomes available
-				currentBid = lastBid.amount
+				blockFor(3000)
 			}
-		} else {
+			// todo: Use Auction's min_step value when it becomes available
 			currentBid = lastBid.amount
 		}
 	}
-	
-	$: isAuthor = $userStore && $userStore.id === ownerId
-	$: isAuthorOfLastBid = (lastBid && lastBid.user_id) === ($userStore && $userStore.id)
+
+	function onFocusChanged(focused) {
+		if (focused || !lastBid)
+			return
+
+		if (currentBid < lastBid.amount) {
+			toastr.warning("Your bid is too small (updated to the next minimal bid)")
+			// todo: Use Auction's min_step value when it becomes available
+			currentBid = lastBid.amount
+			blockFor(3000)
+		}
+	}
 
 	function onPlaceBid() {
 		// todo: Use Auction's min_step value when it becomes available
-		if (!currentBid || currentBid <= 0 || blocked)
+		if (!currentBid || currentBid <= 0 || (lastBid ? currentBid < lastBid.amount : false) || blocked)
 			return
 
 		dispatch("placeBid", currentBid)
@@ -64,23 +80,27 @@
 			toastr.warning("Your bid is last (cannot place another one right now)")
 			return
 		}
-		
+
 		onPlaceBid()
 	}
 
-	function onBidPlaced({itemId: bidPlacedItemId, msg: bid}) {
-		if (bidPlacedItemId !== itemId || amountFocused)
-			return
+	function onBidPlaced(bid) {
+		if (bid.amount > currentBid) {
+			blockFor(3000)
+			// todo: Use Auction's min_step value when it becomes available
+			currentBid = bid.amount
+		}
 
-		// todo: Use Auction's min_step value when it becomes available
-		currentBid = bid.amount
-		blockFor(3000)
 	}
 
 	function eventBusListeners(add = false) {
-		const method = add && "on" || "detach"
-		eventBus[method]("bid_placed", onBidPlaced)
-		eventBus[method]("place_bid_success", onPlaceBidSuccess)
+		const fn = add && "on" || "detach"
+
+		const action = (e, callback) =>
+			eventBus[fn](e + ":" + auctionId, callback)
+
+		action("bid_placed", onBidPlaced)
+		action("place_bid_success", onPlaceBidSuccess)
 	}
 
 	function blockFor(amount) {

@@ -28,7 +28,7 @@ defmodule BiddingPocWeb.AuctionsChannel do
     |> AuctionManager.create_auction(user_id)
     |> case do
       {:ok, auction_item} = res ->
-        # broadcast_from(socket, "item_added", auction_item)
+        # broadcast_from(socket, "auction_added", auction_item)
 
         UserInAuction.add_user_to_auction(auction_item.id, user_id, false)
 
@@ -78,7 +78,7 @@ defmodule BiddingPocWeb.AuctionsChannel do
   @impl true
   def handle_info({:auction_added, %AuctionItem{} = auction_item}, socket) do
     if user_interested_in_auction?(socket, auction_item) do
-      push(socket, "item_added", auction_item)
+      push(socket, "auction_added", auction_item)
     end
 
     {:noreply, socket}
@@ -86,7 +86,7 @@ defmodule BiddingPocWeb.AuctionsChannel do
 
   def handle_info({:auction_deleted, %AuctionItem{} = auction_item}, socket) do
     if user_interested_in_auction?(socket, auction_item) do
-      push(socket, "item_removed", auction_item)
+      push(socket, "auction_deleted", auction_item)
     end
 
     {:noreply, socket}

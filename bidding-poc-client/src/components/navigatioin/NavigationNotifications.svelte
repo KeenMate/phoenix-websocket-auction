@@ -20,10 +20,10 @@
 
 	function getNotificationMessage(notification) {
 		switch (notification.eventType) {
-			case "item_added":
-				return `Item '${notification.msg.title}' has been added`
-			case "item_removed":
-				return `Item '${notification.msg.title}' has been removed`
+			case "auction_added":
+				return `Auction '${notification.msg.title}' has been added`
+			case "auction_deleted":
+				return `Auction '${notification.msg.title}' has been removed`
 			case "bidding_started":
 				return `Bidding for item '${notification.msg.title}' has started`
 			case "bidding_ended":

@@ -1,5 +1,5 @@
 import {writable} from "svelte/store"
-import {pushSocketMessage} from "./common"
+import {joinChannel, pushSocketMessage} from "./common"
 import eventBus from "../../helpers/event-bus"
 
 export const usersChannel = writable(null)
@@ -19,47 +19,15 @@ export function initUsersChannel(socket) {
 	const channel = socket.channel("users:lobby", {})
 
 	return joinChannel(channel)
-		.then(x => {
-			console.log("Users channel joined")
-			return x
-		})
-		.catch(error => {
-			console.error("Error occured while joining users channel", error)
-			throw error
-		})
 }
 
 export function initUserChannel(socket, userId) {
-	const userChannel = socket.channel(`user:${userId}`, {})
+	const channel = socket.channel(`user:${userId}`, {})
 
-	userChannel.on("place_bid_success", msg => {
-		eventBus.emit("place_bid_success", null, msg)
-	})
-	userChannel.on("place_bid_error", msg => {
-		eventBus.emit("place_bid_error", null, msg)
-	})
+	listenPlaceBidSuccess(channel)
+	listenPlaceBidError(channel)
 
-	return joinChannel(userChannel)
-		.then(x => {
-			console.log("User channel joined")
-			return x
-		})
-		.catch(error => {
-			console.error("Error occured while joining user channel", error)
-			throw error
-		})
-}
-
-function joinChannel(channel) {
-	return new Promise((resolve, reject) => {
-		channel.join()
-			.receive("ok", () => {
-				resolve(channel)
-			})
-			.receive("error", ctx => {
-				reject(ctx)
-			})
-	})
+	return joinChannel(channel)
 }
 
 export async function getUsers(search, page = 0, pageSize = 10) {
@@ -94,4 +62,15 @@ export async function deleteUser(userId) {
 	const channel = await usersChannelAwaiter
 
 	return pushSocketMessage(channel, "delete_user", {user_id: userId})
+}
+
+function listenPlaceBidSuccess(channel) {
+	channel.on("place_bid_success", msg => {
+		eventBus.emit("place_bid_success", null, msg)
+	})
+}
+function listenPlaceBidError(channel) {
+	channel.on("place_bid_error", msg => {
+		eventBus.emit("place_bid_error", null, msg)
+	})
 }

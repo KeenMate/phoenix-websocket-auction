@@ -274,7 +274,7 @@ defdatabase BiddingPoc.Database do
 
           true ->
             result =
-              to_item(user_id, category_id, prefered_price)
+              to_auction(user_id, category_id, prefered_price)
               |> write()
 
             Logger.debug("Category: #{category_id} now followed by user: #{user_id}")
@@ -320,7 +320,7 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    defp to_item(user_id, category_id, prefered_price) do
+    defp to_auction(user_id, category_id, prefered_price) do
       %UserFollowedCategory{
         user_id: user_id,
         category_id: category_id,
@@ -414,7 +414,7 @@ defdatabase BiddingPoc.Database do
     def delete_category(category_id) do
       Amnesia.transaction do
         with {:category, category} when not is_nil(category) <- {:category, read(category_id)},
-             {:items, []} <- {:items, AuctionItem.get_category_items(category_id, 0, 1)} do
+             {:auctions, []} <- {:auctions, AuctionItem.get_category_auctions(category_id, 0, 1)} do
           delete(category_id)
 
           :ok
@@ -422,7 +422,7 @@ defdatabase BiddingPoc.Database do
           {:category, nil} ->
             {:error, :not_found}
 
-          {:items, _linked_items} ->
+          {:auctions, _linked_auctions} ->
             {:error, :used}
         end
       end
@@ -504,8 +504,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_last_items(number(), number()) :: [t()]
-    def get_last_items(search \\ nil, cateogry_id \\ nil, skip \\ 0, take \\ 10)
+    @spec get_last_auctions(number(), number()) :: [t()]
+    def get_last_auctions(search \\ nil, cateogry_id \\ nil, skip \\ 0, take \\ 10)
         when is_number(skip) and is_number(take) do
       Amnesia.transaction do
         foldl([], &[&1 | &2])
@@ -545,22 +545,22 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec with_data(pos_integer()) ::
-            {:ok, t()} | {:error, :item_not_found | :user_not_found | :category_not_found}
+            {:ok, t()} | {:error, :auction_not_found | :user_not_found | :category_not_found}
     def with_data(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
         with {:auction, {:ok, auction}} <- {:auction, get_by_id(auction_id)},
              {:user, {:ok, user}} <- {:user, User.get_by_id(auction.user_id)},
              {:category, {:ok, category}} <-
                {:category, AuctionItemCategory.get_by_id(auction.category_id)} do
-          item_with_additional_info =
+          auction_with_additional_info =
             auction
             |> Map.put(:username, user.username)
             |> Map.put(:category, category.title)
 
-          {:ok, item_with_additional_info}
+          {:ok, auction_with_additional_info}
         else
           {:auction, {:error, :not_found}} ->
-            {:error, :item_not_found}
+            {:error, :auction_not_found}
 
           {:user, {:error, :not_found}} ->
             {:error, :user_not_found}
@@ -579,8 +579,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_category_items(pos_integer(), pos_integer(), pos_integer()) :: [t()]
-    def get_category_items(category_id, skip \\ 0, take \\ 10)
+    @spec get_category_auctions(pos_integer(), pos_integer(), pos_integer()) :: [t()]
+    def get_category_auctions(category_id, skip \\ 0, take \\ 10)
         when is_number(category_id) and is_number(skip) and is_number(take) do
       Amnesia.transaction do
         stream()
@@ -591,8 +591,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec update_auction(t(), pos_integer()) :: {:ok, t()} | {:error, :not_found | :user_not_found | :forbidden}
-    def update_auction(%AuctionItem{} = auction_item, user_id) when is_number(user_id) do
+    @spec update_auction(t(), pos_integer() | atom()) :: {:ok, t()} | {:error, :not_found | :user_not_found | :forbidden}
+    def update_auction(%AuctionItem{} = auction_item, user_id) when (is_number(user_id) or is_atom(user_id)) do
       Amnesia.transaction do
         with {:user, {:ok, user}} <- {:user, User.get_by_id(user_id)},
              {:auction, {:ok, found}} <- {:auction, get_by_id(auction_item.id)},
@@ -613,7 +613,7 @@ defdatabase BiddingPoc.Database do
 
     @spec place_bid(pos_integer(), pos_integer() | atom(), pos_integer()) ::
             {:ok, AuctionBid.t()}
-            | {:error, :not_found | :small_bid | :bidding_ended | :item_postponed}
+            | {:error, :not_found | :small_bid | :bidding_ended | :auction_postponed}
     def place_bid(auction_id, user_id, amount)
         when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
       Amnesia.transaction do
@@ -634,7 +634,7 @@ defdatabase BiddingPoc.Database do
               end
 
             {:ok, :postponed} ->
-              {:error, :item_postponed}
+              {:error, :auction_postponed}
 
             {:ok, :ended} ->
               {:error, :bidding_ended}
@@ -643,9 +643,9 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec user_id_authorized?(pos_integer(), pos_integer()) ::
+    @spec user_id_authorized?(pos_integer(), pos_integer() | atom()) ::
             boolean() | {:error, :not_found | :user_not_found}
-    def user_id_authorized?(auction_id, user_id) when is_number(auction_id) and is_number(user_id) do
+    def user_id_authorized?(auction_id, user_id) when is_number(auction_id) and (is_number(user_id) or is_atom(user_id)) do
       Amnesia.transaction do
         user_owner? =
           auction_id
@@ -790,7 +790,7 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    def get_item_bids(auction_id) when is_number(auction_id) do
+    def get_auction_bids(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
         match(auction_id: auction_id)
         |> Amnesia.Selection.values()
@@ -798,9 +798,9 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec with_data(list(t())) :: list(t())
-    def with_data(item_bids) when is_list(item_bids) do
+    def with_data(auction_bids) when is_list(auction_bids) do
       Amnesia.transaction do
-        item_bids
+        auction_bids
         |> Enum.map(fn bid ->
           with {:user, {:ok, user}} <- {:user, get_user_from_bid(bid)} do
             updated_bid =
@@ -827,8 +827,8 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_item_highest_bid(pos_integer(), pos_integer()) :: [t()]
-    def get_item_highest_bid(auction_id, highest_count \\ 1)
+    @spec get_auction_highest_bid(pos_integer(), pos_integer()) :: [t()]
+    def get_auction_highest_bid(auction_id, highest_count \\ 1)
         when is_number(auction_id) and is_number(highest_count) do
       Amnesia.transaction do
         match(auction_id: auction_id)
@@ -850,16 +850,17 @@ defdatabase BiddingPoc.Database do
     def delete_auction_bids(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
         match(auction_id: auction_id)
+        |> Amnesia.Selection.values()
         |> Enum.map(& &1.id)
         |> Enum.each(&delete/1)
       end
     end
 
-    @spec new_bid(pos_integer() | nil, pos_integer(), pos_integer()) :: t()
+    @spec new_bid(pos_integer() | nil, pos_integer() | atom(), pos_integer()) :: t()
     @doc """
     Returns new struct with given data
     """
-    def new_bid(auction_id, user_id, amount) when is_number(auction_id) and is_number(user_id) and is_number(amount) do
+    def new_bid(auction_id, user_id, amount) when is_number(auction_id) and (is_number(user_id) or is_atom(user_id)) and is_number(amount) do
       %AuctionBid{
         auction_id: auction_id,
         user_id: user_id,
@@ -952,6 +953,7 @@ defdatabase BiddingPoc.Database do
     def delete_auction_users(auction_id) when is_number(auction_id) do
       Amnesia.transaction do
         match(auction_id: auction_id)
+        |> Amnesia.Selection.values()
         |> Enum.map(& &1.id)
         |> Enum.each(&delete/1)
       end
