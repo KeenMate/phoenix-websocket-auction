@@ -21,6 +21,7 @@
 	import AuctionItemBiddings from "../components/auction-item/AuctionItemBiddings.svelte"
 	import AuctionItemBiddingForm from "../components/auction-item/AuctionItemBiddingForm.svelte"
 	import AuctionItemActiveUsers from "../components/auction-item/AuctionItemActiveUsers.svelte"
+	import {getUser} from "../providers/socket/user"
 
 	export let params = {}
 
@@ -31,6 +32,7 @@
 
 	// auction item
 	let auctionItem = {}
+	let auctionOwner = null
 	let users = null
 	let biddings = []
 
@@ -45,7 +47,20 @@
 	$: lastBid = biddings && biddings[0]
 
 	$: isAuthor = (auctionItem && $userStore) && auctionItem.user_id === $userStore.id
+	$: getAuctionOwner(auctionItem)
 
+	function getAuctionOwner(auction) {
+		if (!auction || !auction.user_id)
+			return
+
+		getUser(auction.user_id)
+			.then(user => auctionOwner = user)
+			.catch(error => {
+				console.error("Could not load auction owner", error, auction)
+				toastr.error("Could not load auction owner info")
+			})
+	}
+	
 	function reassignAuctionItem() {
 		auctionItem = auctionItem
 	}
@@ -307,6 +322,7 @@
 			{:else}
 				<AuctionItemDetail
 					{...auctionItem}
+					{auctionOwner}
 					on:toggleFollow={onToggleFollow}
 					on:deleteAuction={onDeleteAuction}
 				/>

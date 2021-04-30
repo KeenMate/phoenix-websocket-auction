@@ -1,6 +1,7 @@
 <script>
 	import m from "moment"
 	import Card from "../ui/Card.svelte"
+	import UserLink from "./UserLink.svelte"
 
 	export let biddings = []
 </script>
@@ -9,15 +10,17 @@
 	<table class="table is-fullwidth">
 		<thead>
 		<tr>
-			<th>Username</th>
+			<th>Bidder</th>
 			<th>Amount</th>
-			<th>Inserted at</th>
+			<th>Bidded</th>
 		</tr>
 		</thead>
 		<tbody>
 		{#each biddings as itemBid (itemBid.id)}
 			<tr>
-				<td>{itemBid.user_display_name}</td>
+				<td>
+					<UserLink user={{id: itemBid.user_id, display_name: itemBid.user_display_name}} />
+				</td>
 				<td>{itemBid.amount}</td>
 				<td>{m(itemBid.inserted_at).fromNow()}</td>
 			</tr>

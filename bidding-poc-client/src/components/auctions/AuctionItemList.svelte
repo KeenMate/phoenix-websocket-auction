@@ -42,7 +42,7 @@
 					<th>Category</th>
 					<th>Bidding start</th>
 					<th>Bidding end</th>
-					<th>Inserted at</th>
+					<th>Created</th>
 				</tr>
 				</thead>
 				<tbody>

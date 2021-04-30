@@ -1,10 +1,11 @@
 <script>
 	import {createEventDispatcher} from "svelte"
 	import m from "moment"
- 	import {userStore} from "../../providers/auth"
+	import {userStore} from "../../providers/auth"
 	import {minuteer} from "../../stores/other"
 	import Card from "../ui/Card.svelte"
 	import AuctionControls from "./AuctionControls.svelte"
+	import UserLink from "./UserLink.svelte"
 
 	const dispatch = createEventDispatcher()
 
@@ -18,6 +19,8 @@
 	export let bidding_start = null
 	export let bidding_end = null
 	export let user_status = "nothing"
+
+	export let auctionOwner = null
 
 	$: biddingStartMoment = bidding_start && m(bidding_start)
 	$: biddingStartedRelative = $minuteer && biddingStartMoment && biddingStartMoment.fromNow()
@@ -101,11 +104,17 @@
 		<b>Minimum bid step: </b>
 		{minimum_bid_step}
 		<br>
-		<b>Inserted at: </b>
+		<b>Created: </b>
 		{#if inserted_at}
 			<time datetime={getDateString(inserted_at)}>{formatDateTime(inserted_at)}</time>
 		{:else}
 			Not available
+		{/if}
+		<br>
+		<b>Creator: </b>
+		{#if auctionOwner}
+			<UserLink user={auctionOwner} />
+			<br>
 		{/if}
 	</div>
 </Card>
