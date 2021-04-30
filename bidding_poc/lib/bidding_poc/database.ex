@@ -591,8 +591,10 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec update_auction(t(), pos_integer() | atom()) :: {:ok, t()} | {:error, :not_found | :user_not_found | :forbidden}
-    def update_auction(%AuctionItem{} = auction_item, user_id) when (is_number(user_id) or is_atom(user_id)) do
+    @spec update_auction(t(), pos_integer() | atom()) ::
+            {:ok, t()} | {:error, :not_found | :user_not_found | :forbidden}
+    def update_auction(%AuctionItem{} = auction_item, user_id)
+        when is_number(user_id) or is_atom(user_id) do
       Amnesia.transaction do
         with {:user, {:ok, user}} <- {:user, User.get_by_id(user_id)},
              {:auction, {:ok, found}} <- {:auction, get_by_id(auction_item.id)},
@@ -615,7 +617,8 @@ defdatabase BiddingPoc.Database do
             {:ok, AuctionBid.t()}
             | {:error, :not_found | :small_bid | :bidding_ended | :auction_postponed}
     def place_bid(auction_id, user_id, amount)
-        when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
+        when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and
+               is_number(amount) do
       Amnesia.transaction do
         auction = read(auction_id)
 
@@ -645,7 +648,8 @@ defdatabase BiddingPoc.Database do
 
     @spec user_id_authorized?(pos_integer(), pos_integer() | atom()) ::
             boolean() | {:error, :not_found | :user_not_found}
-    def user_id_authorized?(auction_id, user_id) when is_number(auction_id) and (is_number(user_id) or is_atom(user_id)) do
+    def user_id_authorized?(auction_id, user_id)
+        when is_number(auction_id) and (is_number(user_id) or is_atom(user_id)) do
       Amnesia.transaction do
         user_owner? =
           auction_id
@@ -703,8 +707,8 @@ defdatabase BiddingPoc.Database do
     end
 
     defp parse_auction_item_record(
-           {AuctionItem, id, user_id, title, category_id, start_price, minimum_bid_step, bidding_start, bidding_end,
-            inserted_at}
+           {AuctionItem, id, user_id, title, category_id, start_price, minimum_bid_step,
+            bidding_start, bidding_end, inserted_at}
          ) do
       %AuctionItem{
         id: id,
@@ -860,7 +864,9 @@ defdatabase BiddingPoc.Database do
     @doc """
     Returns new struct with given data
     """
-    def new_bid(auction_id, user_id, amount) when is_number(auction_id) and (is_number(user_id) or is_atom(user_id)) and is_number(amount) do
+    def new_bid(auction_id, user_id, amount)
+        when is_number(auction_id) and (is_number(user_id) or is_atom(user_id)) and
+               is_number(amount) do
       %AuctionBid{
         auction_id: auction_id,
         user_id: user_id,
@@ -934,16 +940,16 @@ defdatabase BiddingPoc.Database do
             {:ok, :removed}
 
           [%{joined: true} = x] ->
-            case AuctionBid.get_user_auction_bids(auction_id, user_id) do
-              [] ->
+            case AuctionBid.get_auction_highest_bid(auction_id) do
+              [%{user_id: ^user_id}] ->
+                {:error, :already_bidded}
+
+              _ ->
                 x
                 |> Map.put(:joined, false)
                 |> write()
 
                 {:ok, :bidding_left}
-
-              _ ->
-                {:error, :already_bidded}
             end
         end
       end
@@ -961,7 +967,8 @@ defdatabase BiddingPoc.Database do
 
     @spec toggle_followed_auction(pos_integer(), pos_integer()) ::
             {:ok, :following | :not_following} | {:error, :joined}
-    def toggle_followed_auction(auction_id, user_id) when is_number(auction_id) and is_number(user_id) do
+    def toggle_followed_auction(auction_id, user_id)
+        when is_number(auction_id) and is_number(user_id) do
       Amnesia.transaction do
         match(auction_id: auction_id, user_id: user_id)
         |> Amnesia.Selection.values()
