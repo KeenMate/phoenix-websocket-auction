@@ -627,7 +627,7 @@ defdatabase BiddingPoc.Database do
         else
           case auction_bidding_status(auction) do
             {:ok, :ongoing} ->
-              case try_add_bid(auction.id, user_id, amount) do
+              case try_add_bid(auction.id, user_id, auction.minimum_bid_step, amount) do
                 {:ok, _} = result ->
                   Logger.debug("Bid placed for auction: #{auction_id} by user: #{user_id}")
                   result
@@ -723,8 +723,8 @@ defdatabase BiddingPoc.Database do
       }
     end
 
-    defp try_add_bid(auction_id, user_id, amount) do
-      if AuctionBid.is_amount_highest?(auction_id, amount) do
+    defp try_add_bid(auction_id, user_id, minimum_bid_step, amount) do
+      if AuctionBid.is_amount_highest?(auction_id, minimum_bid_step, amount) do
         new_bind =
           AuctionBid.new_bid(auction_id, user_id, amount)
           |> AuctionBid.write()
@@ -821,11 +821,11 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec is_amount_highest?(pos_integer(), pos_integer()) :: boolean()
-    def is_amount_highest?(auction_id_param, amount_param)
+    @spec is_amount_highest?(pos_integer(), pos_integer(), pos_integer()) :: boolean()
+    def is_amount_highest?(auction_id_param, minimum_bid_step, amount_param)
         when is_number(auction_id_param) and is_number(amount_param) do
       Amnesia.transaction do
-        where(auction_id == auction_id_param and amount >= amount_param)
+        where(auction_id == auction_id_param and amount + minimum_bid_step >= amount_param)
         |> Amnesia.Selection.values()
         |> Enum.empty?()
       end
