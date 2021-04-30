@@ -14,6 +14,7 @@
 	export let category = ""
 	export let description = ""
 	export let inserted_at = null
+	export let minimum_bid_step = 0
 	export let bidding_start = null
 	export let bidding_end = null
 	export let user_status = "nothing"
@@ -66,6 +67,7 @@
 								<span class="tag is-primary">{category}</span>
 							</p>
 						{/if}
+						
 					</div>
 					<div class="column is-12-mobile">
 						<AuctionControls
@@ -96,6 +98,9 @@
 			{description}
 			<br>
 		{/if}
+		<b>Minimum bid step: </b>
+		{minimum_bid_step}
+		<br>
 		<b>Inserted at: </b>
 		{#if inserted_at}
 			<time datetime={getDateString(inserted_at)}>{formatDateTime(inserted_at)}</time>
