@@ -505,7 +505,7 @@ defdatabase BiddingPoc.Database do
     end
 
     @spec get_last_auctions(number(), number()) :: [t()]
-    def get_last_auctions(search \\ nil, cateogry_id \\ nil, skip \\ 0, take \\ 10)
+    def get_last_auctions(search \\ nil, category_id \\ nil, skip \\ 0, take \\ 10)
         when is_number(skip) and is_number(take) do
       Amnesia.transaction do
         foldl([], &[&1 | &2])
@@ -521,8 +521,8 @@ defdatabase BiddingPoc.Database do
         end)
         |> Stream.map(&parse_auction_item_record/1)
         |> Stream.filter(fn auction ->
-          if(search, do: auction.title =~ search, else: true) &&
-            if cateogry_id, do: auction.category_id == cateogry_id, else: true
+          if(search, do: auction.title =~ ~r/#{search}/i, else: true) &&
+            if category_id, do: auction.category_id == category_id, else: true
         end)
         |> Stream.drop(skip)
         |> Stream.take(take)
