@@ -3,6 +3,7 @@
 	import {pop} from "svelte-spa-router"
 	import m from "moment"
 	import {socket} from "../providers/socket/common"
+	import {userStore} from "../providers/auth"
 	import {deleteAuction} from "../providers/socket/auctions"
 	import {
 		getAuctionBids,
@@ -42,6 +43,8 @@
 	$: biddingStarted = m(auctionItem.bidding_start).isBefore()
 
 	$: lastBid = biddings && biddings[0]
+
+	$: isAuthor = (auctionItem && $userStore) && auctionItem.user_id === $userStore.id
 
 	function reassignAuctionItem() {
 		auctionItem = auctionItem
@@ -222,15 +225,21 @@
 		}
 	}
 
-	function onToggleWatch() {
+	function onToggleFollow() {
 		toggleFollow(presenceChannel)
 			.then(operation => {
-				if (operation === "following")
+				if (operation === "following") {
 					toastr.success("Auction is now followed")
-				else
+					auctionItem.user_status = operation
+				}
+				else if (operation === "nothing") {
 					toastr.success("Auction is not followed anymore!")
-
-				pop()
+					auctionItem.user_status = operation
+				}
+				else {
+					console.warn("Received unknown result while toggle auction follow status")
+					toastr.warning("Received unknown result")
+				}
 			})
 			.catch(error => {
 				console.error("Could not toggle watch", error)
@@ -298,13 +307,13 @@
 			{:else}
 				<AuctionItemDetail
 					{...auctionItem}
-					on:toggleWatch={onToggleWatch}
+					on:toggleFollow={onToggleFollow}
 					on:deleteAuction={onDeleteAuction}
 				/>
 			{/if}
 		</div>
 		<div class="column is-6">
-			{#if biddingEnded }
+			{#if biddingEnded}
 				<Notification>
 					This auction has already ended
 				</Notification>
@@ -312,6 +321,7 @@
 				<Notification>
 					This auction has not started yet
 				</Notification>
+			{:else if isAuthor}
 			{:else if biddingChannel}
 				<AuctionItemBiddingForm
 					auctionId={auctionItem.id}

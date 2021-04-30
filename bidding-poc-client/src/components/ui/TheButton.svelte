@@ -6,6 +6,7 @@
 	export let isWarning = false
 	export let isSuccess = false
 	export let type = "button"
+	export let title = null
 	export let disabled = false
 </script>
 
@@ -18,6 +19,7 @@
 	class:is-warning={isWarning}
 	class:is-success={isSuccess}
 	{type}
+	{title}
 	{disabled}
 	on:click
 >

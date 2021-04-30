@@ -3,8 +3,13 @@
 
 	export let users = []
 
-	$: biddingUsers = users && users.filter(x => x.user_status === "joined") || []
-	$: followingUsers = users && users.filter(x => x.user_status === "following") || []
+	$: activeUserIds = users && users.filter(x => x.activeInstance).map(x => x.auctionUser.id)
+	$: biddingUsers = users && users.filter(x => x.auctionUser.user_status === "joined") || []
+	$: followingUsers = users && users.filter(x => x.auctionUser.user_status === "following") || []
+
+	function userIsActive(user) {
+		return !!activeUserIds.find(x => x === user.auctionUser.id)
+	}
 </script>
 
 <aside class="menu">
@@ -14,7 +19,7 @@
 	<ul class="menu-list">
 		{#each biddingUsers as user}
 			<li>
-				<UserLink {user} />
+				<UserLink user={user.auctionUser} isActive={userIsActive(user)} />
 			</li>
 		{/each}
 	</ul>
@@ -24,7 +29,7 @@
 	<ul class="menu-list">
 		{#each followingUsers as user}
 			<li>
-				<UserLink {user} />
+				<UserLink user={user.auctionUser} isActive={userIsActive(user)} />
 			</li>
 		{/each}
 	</ul>

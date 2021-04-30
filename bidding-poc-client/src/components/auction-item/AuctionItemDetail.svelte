@@ -56,8 +56,8 @@
 	{#if title || category_id}
 		<div class="media">
 			<div class="media-content">
-				<div class="level">
-					<div class="level-left is-block">
+				<div class="columns is-multiline is-justify-content-space-between">
+					<div class="column is-12-mobile">
 						{#if title}
 							<p class="title is-4">{title}</p>
 						{/if}
@@ -67,14 +67,13 @@
 							</p>
 						{/if}
 					</div>
-					<div class="level-right">
-						{#if isAuthor}
-							<AuctionControls
-								{user_status}
-								on:toggleWatch
-								on:delete={onDeleteClick}
-							/>
-						{/if}
+					<div class="column is-12-mobile">
+						<AuctionControls
+							userStatus={user_status}
+							{isAuthor}
+							on:toggleFollow
+							on:delete={onDeleteClick}
+						/>
 					</div>
 				</div>
 			</div>

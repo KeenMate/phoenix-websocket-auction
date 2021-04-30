@@ -625,9 +625,9 @@ defdatabase BiddingPoc.Database do
           case auction_bidding_status(auction) do
             {:ok, :ongoing} ->
               case try_add_bid(auction.id, user_id, amount) do
-                {:ok, _} = res ->
+                {:ok, _} = result ->
                   Logger.debug("Bid placed for auction: #{auction_id} by user: #{user_id}")
-                  res
+                  result
 
                 {:error, :small_bid} = error ->
                   error

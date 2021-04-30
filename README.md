@@ -7,6 +7,7 @@
 
 ### Bidding
  - [FaF] place bid
+ - [RR] get bids
  - bid placed
 
 ### Auctions
@@ -22,6 +23,7 @@
  - [RR] get auction detail
  - [RR] join auction
  - [RR] leave auction
+ - [RR] toggle follow auction
  - detail updated (optional - not yet mandatory)
  - bidding started
  - bidding ended
@@ -30,8 +32,11 @@
 
 ### Auction presence
  - [FaF] toggle follow auction (Now, its [RR])
+ - get auction users (all involved users - event offline users)
  - follow toggled (Not used now)
- - presence_sync/diff (user status changed: joined/followed/(nothing - just watching))
+ - new auction user (followed, joined) (user status changed: joined/followed)
+ - auction user left (new user status: nothing - just watching)
+ - presence_sync/diff
 
 ### User (for global presence as well - in future)
  - [FaF] friendify/unfriendify user

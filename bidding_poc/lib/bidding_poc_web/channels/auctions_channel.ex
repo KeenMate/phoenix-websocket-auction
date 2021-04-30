@@ -27,12 +27,12 @@ defmodule BiddingPocWeb.AuctionsChannel do
     auction_item_params
     |> AuctionManager.create_auction(user_id)
     |> case do
-      {:ok, auction_item} = res ->
+      {:ok, auction_item} = result ->
         # broadcast_from(socket, "auction_added", auction_item)
 
         UserInAuction.add_user_to_auction(auction_item.id, user_id, false)
 
-        {:reply, res, socket}
+        {:reply, result, socket}
 
       {:error, _} = error ->
         {:reply, error, socket}
@@ -53,10 +53,10 @@ defmodule BiddingPocWeb.AuctionsChannel do
     auction_item_params
     |> AuctionManager.update_auction(user_id)
     |> case do
-      {:ok, auction_item} = res ->
-        UserInAuction.add_user_to_auction(auction_item.id, user_id, false)
+      {:ok, auction_item} = result ->
+        AuctionPublisher.broadcast_auction_updated(auction_item)
 
-        {:reply, res, socket}
+        {:reply, result, socket}
 
       {:error, _} = error ->
         {:reply, error, socket}

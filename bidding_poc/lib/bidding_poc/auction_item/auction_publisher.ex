@@ -1,7 +1,7 @@
 defmodule BiddingPoc.AuctionPublisher do
   # TODO: This is not OK.. This app should not rely on Phoenix...
 
-  alias BiddingPoc.Database.{AuctionBid, AuctionItem}
+  alias BiddingPoc.Database.{AuctionBid, AuctionItem, User}
 
   # BROADCASTS
 
@@ -77,6 +77,24 @@ defmodule BiddingPoc.AuctionPublisher do
     )
   end
 
+  @spec broadcast_new_auction_user(pos_integer(), User.t() | map()) :: :ok | {:error, any}
+  def broadcast_new_auction_user(auction_id, user) do
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionUserStatusPubSub,
+      auction_presence_topic(auction_id),
+      {:new_auction_user, user}
+    )
+  end
+
+  @spec broadcast_new_auction_user(pos_integer(), pos_integer()) :: :ok | {:error, any}
+  def broadcast_auction_user_left(auction_id, user_id) do
+    Phoenix.PubSub.broadcast(
+      BiddingPoc.AuctionUserStatusPubSub,
+      auction_presence_topic(auction_id),
+      {:auction_user_left, user_id}
+    )
+  end
+
   # SUBSCRIPTIONS
 
   def subscribe_auction_topic(auction_id) do
@@ -98,6 +116,13 @@ defmodule BiddingPoc.AuctionPublisher do
     )
   end
 
+  def subscribe_auction_presence(auction_id) do
+    Phoenix.PubSub.subscribe(
+      BiddingPoc.AuctionUserStatusPubSub,
+      auction_presence_topic(auction_id)
+    )
+  end
+
   # TOPICS
 
   def auctions_topic() do
@@ -114,5 +139,9 @@ defmodule BiddingPoc.AuctionPublisher do
 
   def user_auction_presence_topic(auction_id, user_id) do
     "auction_presence:#{auction_id}:#{user_id}"
+  end
+
+  def auction_presence_topic(auction_id) do
+    "auction_presence:#{auction_id}"
   end
 end

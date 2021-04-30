@@ -80,7 +80,7 @@ defmodule BiddingPocWeb.AuctionChannel do
       {:error, :joined} = error ->
         {:reply, error, socket}
 
-      {:ok, status} = res ->
+      {:ok, status} = result ->
         new_socket =
           put_user_status(
             socket,
@@ -90,11 +90,29 @@ defmodule BiddingPocWeb.AuctionChannel do
             end
           )
 
-        {:reply, res, new_socket}
+        {:reply, result, new_socket}
     end
   end
 
   @impl true
+  def handle_info({:bid_placed, auction_bid}, socket) do
+    push(socket, "bid_placed", auction_bid)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:average_bid, _}, socket) do
+    # TODO: send average bid
+    {:noreply, socket}
+  end
+
+  def handle_info({:auction_updated, new_auction}, socket) do
+    # TODO: maybe call AuctionItem.with_data and put :user_status key (call push_auction_item/1)
+    push(socket, "auction_updated", Map.from_struct(new_auction))
+
+    {:noreply, socket}
+  end
+
   def handle_info({:bidding_started, %AuctionItem{} = auction_item}, socket) do
     if user_interested_in_auction_item?(socket, auction_item) do
       push(socket, "bidding_started", auction_item)
@@ -107,17 +125,6 @@ defmodule BiddingPocWeb.AuctionChannel do
     if user_interested_in_auction_item?(socket, auction_item) do
       push(socket, "bidding_ended", auction_item)
     end
-
-    {:noreply, socket}
-  end
-
-  def handle_info({:average_bid, _}, socket) do
-    # TODO: send average bid
-    {:noreply, socket}
-  end
-
-  def handle_info({:bid_placed, auction_bid}, socket) do
-    push(socket, "bid_placed", auction_bid)
 
     {:noreply, socket}
   end

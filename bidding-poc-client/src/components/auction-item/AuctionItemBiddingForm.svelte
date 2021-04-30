@@ -140,14 +140,27 @@
 		{#if !isAuthor}
 			<div class="column is-narrow">
 				{#if userStatus === "joined"}
-					<TheButton isLink disabled={blocked || isAuthorOfLastBid} on:click={onPlaceBid}>
+					<TheButton
+						isLink
+						disabled={blocked || isAuthorOfLastBid}
+						title={isAuthorOfLastBid && "Cannot place bid because you are the author of last bid" || (blocked && "Amount has been automatically updated. Check new amount") || null}
+						on:click={onPlaceBid}
+					>
 						Place bid
 					</TheButton>
-					<TheButton isWarning disabled={isAuthorOfLastBid} on:click={onLeaveBidding}>
+					<TheButton
+						isWarning
+						disabled={isAuthorOfLastBid}
+						title={isAuthorOfLastBid && "You are the author of last bid - cannot leave auction now" || null}
+						on:click={onLeaveBidding}
+					>
 						Leave bidding
 					</TheButton>
 				{:else}
-					<TheButton isPrimary on:click={onJoinBidding}>
+					<TheButton
+						isPrimary
+						on:click={onJoinBidding}
+					>
 						Join bidding
 					</TheButton>
 				{/if}

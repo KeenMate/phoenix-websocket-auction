@@ -1,7 +1,7 @@
 defmodule BiddingPoc.AuctionManager do
   require Logger
 
-  alias BiddingPoc.Database.{AuctionItem, UserInAuction}
+  alias BiddingPoc.Database.{AuctionItem, UserInAuction, User}
   alias BiddingPoc.DateHelpers
   alias BiddingPoc.AuctionItemServer
   alias BiddingPoc.AuctionItemSupervisor
@@ -14,9 +14,9 @@ defmodule BiddingPoc.AuctionManager do
     |> new_auction_from_params!()
     |> AuctionItem.create_auction(user_id)
     |> case do
-      {:ok, new_auction} = res ->
+      {:ok, new_auction} = result ->
         start_auction_item_server(new_auction.id, true)
-        res
+        result
 
       {:error, :id_filled} = error ->
         Logger.error("Auction item id was filled")
@@ -37,6 +37,15 @@ defmodule BiddingPoc.AuctionManager do
     AuctionItem.get_last_auctions(search, category_id, skip, take)
   end
 
+  @spec get_auction_users(pos_integer()) :: [%{:__struct__ => atom(), user_status: atom()}]
+  def get_auction_users(auction_id) do
+    UserInAuction.get_auction_users(auction_id)
+    |> Stream.filter(&(elem(&1, 0) == :ok))
+    |> Stream.map(&elem(&1, 1))
+    |> Stream.map(&put_user_status_for_user(&1, auction_id))
+    |> Enum.to_list()
+  end
+
   @spec update_auction(map(), pos_integer()) ::
           {:ok, AuctionItem.t()} | {:error, :forbidden | :not_found | :user_not_found}
   def update_auction(params, user_id) do
@@ -44,9 +53,9 @@ defmodule BiddingPoc.AuctionManager do
     |> new_auction_from_params!()
     |> AuctionItem.update_auction(user_id)
     |> case do
-      {:ok, updated} = res ->
+      {:ok, updated} = result ->
         AuctionPublisher.broadcast_auction_updated(updated)
-        res
+        result
 
       {:error, :forbidden} = error ->
         Logger.error(
@@ -72,7 +81,7 @@ defmodule BiddingPoc.AuctionManager do
   def toggle_follow_auction(auction_id, user_id) do
     UserInAuction.toggle_followed_auction(auction_id, user_id)
     |> case do
-      {:ok, status} = res ->
+      {:ok, status} = result ->
         AuctionPublisher.broadcast_auction_user_status_changed(
           auction_id,
           user_id,
@@ -82,7 +91,9 @@ defmodule BiddingPoc.AuctionManager do
           end
         )
 
-        res
+        broadcast_auction_user_changed(auction_id, user_id, status)
+
+        result
 
       other -> other
     end
@@ -92,11 +103,7 @@ defmodule BiddingPoc.AuctionManager do
     UserInAuction.add_user_to_auction(auction_id, user_id)
     |> case do
       {:ok, %{joined: true}} = result ->
-        AuctionPublisher.broadcast_auction_user_status_changed(
-          auction_id,
-          user_id,
-          :joined
-        )
+        broadcast_auction_user_changed(auction_id, user_id, :joined)
 
         result
 
@@ -108,17 +115,16 @@ defmodule BiddingPoc.AuctionManager do
   def leave_auction(auction_id, user_id) do
     UserInAuction.remove_user_from_auction(auction_id, user_id)
     |> case do
-      {:ok, status} = res ->
-        AuctionPublisher.broadcast_auction_user_status_changed(
-          auction_id,
-          user_id,
-          case status do
-            :removed -> :nothing
-            :bidding_left -> :following
-          end
-        )
+      {:ok, status} = result ->
+        case status do
+          :bidding_left ->
+            broadcast_auction_user_changed(auction_id, user_id, :following)
 
-        res
+          :removed ->
+            broadcast_auction_user_changed(auction_id, user_id, :not_following)
+        end
+
+        result
 
       other ->
         other
@@ -146,9 +152,9 @@ defmodule BiddingPoc.AuctionManager do
         auction_id
         |> AuctionItem.delete_auction()
         |> case do
-          {:ok, deleted} = res ->
+          {:ok, deleted} = result ->
             AuctionPublisher.broadcast_auction_deleted(deleted)
-            res
+            result
 
           {:error, :not_found} = error ->
             Logger.warn("Attempted to remove nonexisting auction item",
@@ -187,6 +193,35 @@ defmodule BiddingPoc.AuctionManager do
 
   def auction_item_server_spec(auction_id, initialy_started) do
     {AuctionItemServer, %{auction_id: auction_id, initialy_started: initialy_started}}
+  end
+
+  defp put_user_status_for_user(%User{} = user, auction_id) do
+    user_status =
+      case UserInAuction.get_user_status(auction_id, user.id) do
+        {:error, :not_found} ->
+          :nothing
+
+        {:ok, status} ->
+          status
+      end
+
+    Map.put(user, :user_status, user_status)
+  end
+
+  defp broadcast_auction_user_changed(auction_id, user_id, status) do
+    case status do
+      x when x in [:following, :joined] ->
+        case User.get_by_id(user_id) do
+          {:ok, found} ->
+            user_with_status = put_user_status_for_user(found, auction_id)
+            AuctionPublisher.broadcast_new_auction_user(auction_id, Map.from_struct(user_with_status))
+          {:error, :not_found} ->
+            Logger.error("Could not find user based on channel's user_id: #{inspect(user_id)}")
+        end
+
+      :not_following ->
+        AuctionPublisher.broadcast_auction_user_left(auction_id, user_id)
+    end
   end
 
   defp auction_item_server_alive?(auction_id) do

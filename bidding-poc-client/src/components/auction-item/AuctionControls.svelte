@@ -2,28 +2,30 @@
 	import {createEventDispatcher} from "svelte"
 	import TheButton from "../ui/TheButton.svelte"
 
-	export let user_status = "nothing"
+	export let userStatus = "nothing"
+	export let isAuthor = false
 
 	const dispatch = createEventDispatcher()
 </script>
 
-<div class="field is-grouped">
-	<p class="control">
-		{#if user_status !== "joined"}
-			<TheButton on:click={() => dispatch("toggleWatch")}>
-				{#if user_status === "following"}
-					Unwatch
-				{:else if user_status === "nothing"}
-					Watch
+<div class="field is-grouped is-justify-content-flex-end">
+	{#if userStatus !== "joined"}
+		<p class="control">
+			<TheButton on:click={() => dispatch("toggleFollow")}>
+				{#if userStatus === "following"}
+					UnFollow
+				{:else if userStatus === "nothing"}
+					Follow
 				{/if}
 			</TheButton>
-		{/if}
-	</p>
-	<p class="control">
-		<TheButton isDanger on:click={() => dispatch("delete")}>
-			Delete
-		</TheButton>
-	</p>
+		</p>
+	{/if}
+	{#if isAuthor}
+		<p class="control">
+			<!-- todo: Render `edit` button -->
+			<TheButton isDanger on:click={() => dispatch("delete")}>
+				Delete
+			</TheButton>
+		</p>
+	{/if}
 </div>
-
-<!-- todo: Render `edit` button if user_id is same as owner id -->
