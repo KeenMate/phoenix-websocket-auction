@@ -5,8 +5,8 @@ defmodule BiddingPoc.UserPublisher do
     Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_placed, auction_bid})
   end
 
-  def send_place_bid_error(user_id, error) do
-    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_place, error})
+  def send_place_bid_error(user_id, auction_id, error) do
+    Phoenix.PubSub.broadcast(UserPubSub, "user:#{user_id}", {:bid_place, auction_id, error})
   end
 
   def subscribe_user_pubsub(user_id) do

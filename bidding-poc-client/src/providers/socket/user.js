@@ -71,6 +71,6 @@ function listenPlaceBidSuccess(channel) {
 }
 function listenPlaceBidError(channel) {
 	channel.on("place_bid_error", msg => {
-		eventBus.emit("place_bid_error", null, msg)
+		eventBus.emit("place_bid_error:" + msg.auction_id, null, msg)
 	})
 }

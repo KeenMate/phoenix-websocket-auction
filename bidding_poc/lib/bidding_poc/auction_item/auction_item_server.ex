@@ -33,7 +33,8 @@ defmodule BiddingPoc.AuctionItemServer do
 
   @spec place_bid(pos_integer(), pos_integer() | atom(), pos_integer()) :: :ok
   def place_bid(auction_id, user_id, amount)
-      when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and is_number(amount) do
+      when is_number(auction_id) and (is_atom(user_id) or is_number(user_id)) and
+             is_number(amount) do
     GenServer.cast(via_tuple(auction_id), {:place_bid, user_id, amount})
   end
 
@@ -45,20 +46,15 @@ defmodule BiddingPoc.AuctionItemServer do
         {:ok, bid} ->
           after_bid_placed(state, user_id, bid)
 
-        {:error, :small_bid} = error ->
-          broadcast_bid_placed_error(user_id, error)
-          state
-
-        {:error, :not_found} = error ->
-          broadcast_bid_placed_error(user_id, error)
-          state
-
-        {:error, :bidding_ended} = error ->
-          broadcast_bid_placed_error(user_id, error)
-          state
-
-        {:error, :auction_postponed} = error ->
-          broadcast_bid_placed_error(user_id, error)
+        {:error, reason} = error
+        when reason in [
+               :small_bid,
+               :not_found,
+               :bidding_ended,
+               :bidding_started,
+               :auction_postponed
+             ] ->
+          broadcast_bid_placed_error(auction_id, user_id, error)
           state
       end
 
@@ -67,7 +63,10 @@ defmodule BiddingPoc.AuctionItemServer do
 
   @impl true
   def handle_info(:bidding_started, %{auction: auction} = state) do
-    place_bid(auction.id, :initial_bid, auction.start_price)
+    # place_bid(auction.id, :initial_bid, auction.start_price)
+    AuctionBid.new_bid(auction.id, :initial_bid, auction.start_price)
+    |> AuctionBid.write_bid()
+
     AuctionPublisher.broadcast_bidding_started(auction.id)
 
     {:noreply, state}
@@ -110,6 +109,7 @@ defmodule BiddingPoc.AuctionItemServer do
     [enhanced_bid] = AuctionBid.with_data([auction_bid])
 
     broadcast_bid_placed(enhanced_bid)
+
     update_average_bidding(state, auction_bid)
 
     # TODO: Broadcast avarage bidding to yet to be created channel for "my auctions"
@@ -120,8 +120,8 @@ defmodule BiddingPoc.AuctionItemServer do
     UserPublisher.send_bid_placed_success(user_id, auction_bid)
   end
 
-  defp broadcast_bid_placed_error(user_id, error) do
-    UserPublisher.send_place_bid_error(user_id, error)
+  defp broadcast_bid_placed_error(auction_id, user_id, error) do
+    UserPublisher.send_place_bid_error(user_id, auction_id, error)
   end
 
   defp update_average_bidding(state, auction_bid) do
@@ -135,8 +135,6 @@ defmodule BiddingPoc.AuctionItemServer do
   end
 
   defp register_bidding_started(%AuctionItem{} = auction, initialy_started) do
-    Logger.debug("[PES]: Registering bidding started reminder. process: #{inspect(self())}")
-
     now = DateTime.now!(Common.timezone())
     start = auction.bidding_start
 
@@ -147,7 +145,8 @@ defmodule BiddingPoc.AuctionItemServer do
       initialy_started ->
         send(self(), :bidding_started)
 
-      true -> nil
+      true ->
+        nil
     end
 
     auction

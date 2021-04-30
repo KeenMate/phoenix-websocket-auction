@@ -5,15 +5,16 @@ defmodule BiddingPocWeb.AuctionChannel do
 
   import BiddingPocWeb.SocketHelpers
 
-  alias BiddingPoc.Database.{AuctionItem, UserFollowedCategory, UserInAuction}
+  alias BiddingPoc.Database.{AuctionItem, UserInAuction}
 
-  alias BiddingPoc.{AuctionManager, UserManager}
+  alias BiddingPoc.{AuctionManager}
   alias BiddingPoc.AuctionPublisher
   alias BiddingPoc.UserStoreAgent
 
   @impl true
   def join("auction:" <> auction_id, payload, socket) do
     include_bid_placed = Map.get(payload, "include_bid_placed", false)
+
     auction_id
     |> Integer.parse()
     |> case do
@@ -113,18 +114,14 @@ defmodule BiddingPocWeb.AuctionChannel do
     {:noreply, socket}
   end
 
-  def handle_info({:bidding_started, %AuctionItem{} = auction_item}, socket) do
-    if user_interested_in_auction_item?(socket, auction_item) do
-      push(socket, "bidding_started", auction_item)
-    end
+  def handle_info(:bidding_started, socket) do
+    push(socket, "bidding_started", %{})
 
     {:noreply, socket}
   end
 
-  def handle_info({:bidding_ended, %AuctionItem{} = auction_item}, socket) do
-    if user_interested_in_auction_item?(socket, auction_item) do
-      push(socket, "bidding_ended", auction_item)
-    end
+  def handle_info(:bidding_ended, socket) do
+    push(socket, "bidding_ended", %{})
 
     {:noreply, socket}
   end
@@ -168,13 +165,13 @@ defmodule BiddingPocWeb.AuctionChannel do
     :ok
   end
 
-  defp user_interested_in_auction_item?(socket, auction_item) do
-    user_id = get_user_id(socket)
+  # defp user_interested_in_auction_item?(socket, auction_item) do
+  #   user_id = get_user_id(socket)
 
-    UserManager.is_auction_currently_viewed?(user_id, auction_item.id) ||
-      category_followed_by_user?(user_id, auction_item) ||
-      UserInAuction.user_in_auction?(auction_item.id, user_id)
-  end
+  #   UserManager.is_auction_currently_viewed?(user_id, auction_item.id) ||
+  #     category_followed_by_user?(user_id, auction_item) ||
+  #     UserInAuction.user_in_auction?(auction_item.id, user_id)
+  # end
 
   defp push_auction_item(socket) do
     socket
@@ -188,7 +185,8 @@ defmodule BiddingPocWeb.AuctionChannel do
 
         push(socket, "auction_data", Map.from_struct(updated_auction_with_data))
 
-      {:error, reason} when reason in [:auction_not_found, :user_not_found, :category_not_found] ->
+      {:error, reason}
+      when reason in [:auction_not_found, :user_not_found, :category_not_found] ->
         Logger.error(
           "Unexpected error occured while loading auction item that has an active ws channel"
         )
@@ -197,11 +195,11 @@ defmodule BiddingPocWeb.AuctionChannel do
     socket
   end
 
-  defp category_followed_by_user?(user_id, auction_item) do
-    auction_item
-    |> Map.get(:category_id)
-    |> UserFollowedCategory.category_followed_by_user?(user_id)
-  end
+  # defp category_followed_by_user?(user_id, auction_item) do
+  #   auction_item
+  #   |> Map.get(:category_id)
+  #   |> UserFollowedCategory.category_followed_by_user?(user_id)
+  # end
 
   defp bid_placed_included?(socket) do
     Map.get(socket.assigns, :include_bid_placed, false)

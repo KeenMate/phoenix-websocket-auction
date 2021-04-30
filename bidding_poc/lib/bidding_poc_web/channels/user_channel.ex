@@ -27,8 +27,8 @@ defmodule BiddingPocWeb.UserChannel do
     {:noreply, socket}
   end
 
-  def handle_info({:bid_place, {:error, reason}}, socket) when is_atom(reason) do
-    push(socket, "place_bid_error", %{reason: Atom.to_string(reason)})
+  def handle_info({:bid_place, auction_id, {:error, reason}}, socket) when is_atom(reason) do
+    push(socket, "place_bid_error", %{auction_id: auction_id, reason: Atom.to_string(reason)})
 
     {:noreply, socket}
   end

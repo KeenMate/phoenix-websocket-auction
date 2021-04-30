@@ -778,6 +778,15 @@ defdatabase BiddingPoc.Database do
     require Protocol
     Protocol.derive(Jason.Encoder, __MODULE__)
 
+    @spec write_bid(t()) :: :ok
+    def write_bid(bid) do
+      Amnesia.transaction do
+        write(bid)
+
+        :ok
+      end
+    end
+
     @spec get_user_bids(pos_integer()) :: [t()]
     def get_user_bids(user_id) when is_number(user_id) do
       Amnesia.transaction do
@@ -825,7 +834,7 @@ defdatabase BiddingPoc.Database do
     def is_amount_highest?(auction_id_param, minimum_bid_step, amount_param)
         when is_number(auction_id_param) and is_number(amount_param) do
       Amnesia.transaction do
-        where(auction_id == auction_id_param and amount + minimum_bid_step >= amount_param)
+        where(auction_id == auction_id_param and amount + minimum_bid_step > amount_param)
         |> Amnesia.Selection.values()
         |> Enum.empty?()
       end
