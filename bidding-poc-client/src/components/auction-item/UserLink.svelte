@@ -12,7 +12,7 @@
 <a href="#{getUserProfileUrl(user.id)}">
 	{user.display_name}
 	{#if isCurrentUser}
-		(You)
+		<span class="tag is-light is-rounded is-info">You</span>
 	{/if}
 	{#if isActive}
 		<span class="tag is-rounded is-light is-success">
