@@ -326,6 +326,7 @@
 				<AuctionItemBiddingForm
 					auctionId={auctionItem.id}
 					userStatus={auctionItem.user_status}
+					minimumBidStep={auctionItem.minimum_bid_step}
 					{lastBid}
 					on:joinBidding={onJoinAuction}
 					on:leaveBidding={onLeaveAuction}

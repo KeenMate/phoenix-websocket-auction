@@ -10,6 +10,7 @@
 
 	export let userStatus = "nothing"
 	export let auctionId = null
+	export let minimumBidStep = 0
 	export let ownerId = null
 	export let lastBid = null
 
@@ -27,13 +28,12 @@
 		if (amountFocused || !bid)
 			return
 
-		if (currentBid < lastBid.amount) {
+		if (currentBid < lastBid.amount + minimumBidStep) {
 			if (currentBid) {
 				toastr.warning("Your bid is too small (updated to the next minimal bid)")
 				blockFor(3000)
 			}
-			// todo: Use Auction's min_step value when it becomes available
-			currentBid = lastBid.amount
+			currentBid = lastBid.amount + minimumBidStep
 		}
 	}
 
@@ -41,17 +41,15 @@
 		if (focused || !lastBid)
 			return
 
-		if (currentBid < lastBid.amount) {
+		if (currentBid < lastBid.amount + minimumBidStep) {
 			toastr.warning("Your bid is too small (updated to the next minimal bid)")
-			// todo: Use Auction's min_step value when it becomes available
-			currentBid = lastBid.amount
+			currentBid = lastBid.amount + minimumBidStep
 			blockFor(3000)
 		}
 	}
 
 	function onPlaceBid() {
-		// todo: Use Auction's min_step value when it becomes available
-		if (!currentBid || currentBid <= 0 || (lastBid ? currentBid < lastBid.amount : false) || blocked)
+		if (!currentBid || currentBid <= 0 || (lastBid ? currentBid < (lastBid.amount + minimumBidStep) : false) || blocked)
 			return
 
 		dispatch("placeBid", currentBid)
@@ -85,12 +83,10 @@
 	}
 
 	function onBidPlaced(bid) {
-		if (bid.amount > currentBid) {
+		if (bid.amount + minimumBidStep > currentBid) {
 			blockFor(3000)
-			// todo: Use Auction's min_step value when it becomes available
-			currentBid = bid.amount
+			currentBid = bid.amount + minimumBidStep
 		}
-
 	}
 
 	function eventBusListeners(add = false) {
