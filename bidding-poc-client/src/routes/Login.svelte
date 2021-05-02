@@ -5,6 +5,7 @@
   import {storeAuthToken, loginUser, authTokenStore, userStore} from "../providers/auth"
   import {UnauthorizedError} from "../providers/exceptions"
   import LoginForm from "../components/LoginForm.svelte"
+  import {Urls} from "../routes"
 
   $: query = parse($querystring)
 
@@ -12,12 +13,12 @@
   let password = ""
 
   let users = []
-  
+
   for (let i = 0; i < 4; i++) {
   	const column = []
 	  for (let j = 0; j < 10; j++)
 	    column.push((i * 10) + j)
-	  
+
 	  users.push(column)
 	}
 
@@ -33,7 +34,7 @@
 		  authTokenStore.set(token)
 		  userStore.set(user)
 
-		  push(query.redirect || "/")
+		  push(query.redirect || Urls.MyAuctions)
 	  } catch (err) {
 		  if (err instanceof UnauthorizedError) toastr.error("Incorrect credentials")
 		  else {
@@ -48,7 +49,7 @@
   function padNumber(number) {
 	  return number.toString().padStart(3, "0")
   }
-  
+
   function setUser(postfix) {
   	username = `user${padNumber(postfix)}`
 	  password = "1234"

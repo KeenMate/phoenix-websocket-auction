@@ -50,6 +50,17 @@ export async function getAuctions(search, categoryId, page, pageSize) {
 	})
 }
 
+export async function getMyAuctions(search, categoryId, page, pageSize) {
+	const channel = await auctionChannelAwaiter
+
+	return pushSocketMessage(channel, "get_my_auctions", {
+		search: search || null,
+		category_id: categoryId || null,
+		skip: page * pageSize,
+		take: pageSize
+	})
+}
+
 export async function getAuctionCategories() {
 	const channel = await auctionChannelAwaiter
 
