@@ -4,6 +4,7 @@
 	import Notification from "../ui/Notification.svelte"
 	import Card from "../ui/Card.svelte"
 	import AuctionBiddingEndBadge from "./AuctionBiddingEndBadge.svelte"
+	import {minuteer} from "../../stores/other"
 
 	export let auctionItems = []
 	export let categories = []
@@ -12,6 +13,7 @@
 
 	$: sortedItems = sortItems(auctionItems)
 	$: mappedItems = categories && mapItems(sortedItems)
+	$: updatedItems = $minuteer && mappedItems
 
 	function getCategoryTitle(categoryId) {
 		return (categories.find(x => x.id === categoryId) || {}).title || "Not available"
@@ -32,7 +34,7 @@
 	}
 </script>
 
-{#if mappedItems && mappedItems.length}
+{#if updatedItems && updatedItems.length}
 	<Card>
 		<div class="with-scroll">
 			<table class="table is-fullwidth">
@@ -46,7 +48,7 @@
 				</tr>
 				</thead>
 				<tbody>
-				{#each mappedItems as item (item.id)}
+				{#each updatedItems as item (item.id)}
 					<tr>
 						<td>
 							<a href="#{getAuctionItemUrl(item.id)}">

@@ -379,13 +379,8 @@ defdatabase BiddingPoc.Database do
       lowered_title = String.downcase(title)
 
       Amnesia.transaction do
-        foldl([], &[&1 | &2])
-        |> Stream.filter(fn tuple ->
-          tuple
-          |> elem(2)
-          |> String.downcase() == lowered_title
-        end)
-        |> Stream.map(&parse_from_tuple/1)
+        stream()
+        |> Stream.filter(&String.downcase(&1.title) == lowered_title)
         |> Stream.take(1)
         |> Enum.to_list()
         |> case do
@@ -497,10 +492,10 @@ defdatabase BiddingPoc.Database do
       {:error, :id_filled}
     end
 
+    @spec get_all :: Enumerable.t(t())
     def get_all() do
       Amnesia.transaction do
-        foldl([], &[&1 | &2])
-        |> Enum.map(&parse_auction_item_record/1)
+        stream()
       end
     end
 
@@ -508,11 +503,77 @@ defdatabase BiddingPoc.Database do
     def get_last_auctions(search \\ nil, user_id \\ nil, category_id \\ nil, skip \\ 0, take \\ 10)
         when is_number(skip) and is_number(take) do
       Amnesia.transaction do
+        get_auctions(
+          fn auction ->
+            if(search, do: auction.title =~ ~r/#{search}/i, else: true)
+            && if(category_id, do: auction.category_id == category_id, else: true)
+            && if(user_id, do: auction.user_id == user_id, else: true)
+          end)
+        |> Stream.drop(skip)
+        |> Stream.take(take)
+        |> Enum.to_list()
+      end
+    end
+
+    @spec get_my_auctions_for_user(pos_integer(), binary() | nil, pos_integer() | nil, non_neg_integer(), pos_integer()) :: [t()]
+    def get_my_auctions_for_user(user_id, search \\ nil, category_id \\ nil, skip \\ 0, take \\ 10) do
+      Amnesia.transaction do
+        user_auctions =
+          user_id
+          |> UserInAuction.get_user_auctions()
+          |> Enum.map(& &1.auction_id)
+
+        get_auctions(
+          fn auction ->
+            (
+              auction.user_id == user_id
+              || auction.id in user_auctions
+            )
+            && if(category_id, do: auction.category_id == category_id, else: true)
+            && if(search, do: auction.title =~ ~r/#{search}/i, else: true)
+          end)
+        |> Stream.drop(skip)
+        |> Stream.take(take)
+        |> Stream.map(&with_category_and_user_status(&1, user_id))
+        |> Enum.to_list()
+      end
+    end
+
+    @spec get_oldest_auctions(binary() | nil, pos_integer() | nil, pos_integer() | nil, non_neg_integer(), pos_integer()) :: [t()]
+    def get_oldest_auctions(search \\ nil, user_id \\ nil, category_id \\ nil, skip \\ 0, take \\ 10) do
+      now = DateTime.now!(Common.timezone)
+      Amnesia.transaction do
+        get_auctions(
+          fn auction ->
+            if(search, do: auction.title =~ ~r/#{search}/i, else: true)
+            && if(category_id, do: auction.category_id == category_id, else: true)
+            && if(user_id, do: auction.user_id == user_id, else: true)
+          end,
+          fn l, r ->
+            l_bidding_end = elem(l, 8)
+            r_bidding_end = elem(r, 8)
+            if l_bidding_end && r_bidding_end do
+              DateTime.diff(now, l_bidding_end) < DateTime.diff(now, r_bidding_end)
+            else
+              true
+            end
+          end)
+        |> Stream.drop(skip)
+        |> Stream.take(take)
+        |> Enum.to_list()
+      end
+    end
+
+    @spec get_auctions((t() -> boolean()) | nil, (t(), t() -> boolean()) | nil) :: Enumerable.t(t())
+    @doc """
+    Returns first `take` auctions filtered by `filterer` and sorted by `sorter` (newest on top by default)
+    """
+    def get_auctions(filterer \\ nil, sorter \\ nil) do
+      Amnesia.transaction do
         foldl([], &[&1 | &2])
-        |> Enum.sort(fn l, r ->
+        |> Enum.sort(sorter || fn l, r ->
           l_inserted_at = elem(l, 9)
           r_inserted_at = elem(r, 9)
-
           if l_inserted_at && r_inserted_at do
             DateTime.compare(l_inserted_at, r_inserted_at) in [:gt, :eq]
           else
@@ -520,14 +581,7 @@ defdatabase BiddingPoc.Database do
           end
         end)
         |> Stream.map(&parse_auction_item_record/1)
-        |> Stream.filter(fn auction ->
-          if(search, do: auction.title =~ ~r/#{search}/i, else: true)
-          && if(category_id, do: auction.category_id == category_id, else: true)
-          && if(user_id, do: auction.user_id == user_id, else: true)
-        end)
-        |> Stream.drop(skip)
-        |> Stream.take(take)
-        |> Enum.to_list()
+        |> Stream.filter(filterer || fn _ -> true end)
       end
     end
 
@@ -542,6 +596,35 @@ defdatabase BiddingPoc.Database do
       |> case do
         nil -> {:error, :not_found}
         found -> {:ok, found}
+      end
+    end
+
+    @spec with_category_and_user_status(t(), pos_integer()) :: t()
+    def with_category_and_user_status(auction, user_id) do
+      Amnesia.transaction do
+        [category, user_status] =
+          [
+            fn ->
+              AuctionItemCategory.get_by_id(auction.category_id)
+              |> case do
+                {:ok, found} -> found.title
+                {:error, :not_found} -> nil
+              end
+            end,
+            fn ->
+              UserInAuction.get_user_status(auction.id, user_id)
+              |> case do
+                {:ok, status} -> status
+                {:error, :not_found} -> :nothing
+              end
+            end
+          ]
+          |> Enum.map(&Task.async/1)
+          |> Enum.map(&Task.await/1)
+
+        auction
+        |> Map.put(:category, category)
+        |> Map.put(:user_status, user_status)
       end
     end
 

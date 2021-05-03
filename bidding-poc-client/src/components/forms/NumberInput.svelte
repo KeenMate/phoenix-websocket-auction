@@ -16,11 +16,13 @@
 
 {#if isHorizontal}
 	<div class="field is-horizontal">
-		<div class="field-label is-normal">
-			<label class="label">
-				{label}
-			</label>
-		</div>
+		{#if label}
+			<div class="field-label is-normal">
+				<label class="label">
+					{label}
+				</label>
+			</div>
+		{/if}
 		<div class="field-body">
 			<div class="field">
 				<div class="control">

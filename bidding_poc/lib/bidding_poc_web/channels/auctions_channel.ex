@@ -44,7 +44,15 @@ defmodule BiddingPocWeb.AuctionsChannel do
   end
 
   def handle_in("get_my_auctions", params, socket) do
-    {:reply, {:ok, AuctionManager.get_user_auctions(get_user_id(socket), params)}, socket}
+    {
+      :reply,
+      {
+        :ok,
+        AuctionManager.get_my_auctions_for_user(get_user_id(socket), params)
+        |> Enum.map(&Map.from_struct/1)
+      },
+      socket
+    }
   end
 
   def handle_in("get_auction_categories", _payload, socket) do

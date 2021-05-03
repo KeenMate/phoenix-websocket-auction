@@ -1,11 +1,19 @@
-import {readable} from "svelte/store"
+import {derived, readable} from "svelte/store"
 
-export const minuteer = readable(new Date(), set => {
+export let secondeer = readable(new Date(), set => {
 	const interval = setInterval(() => {
 		set(new Date())
-	}, 5000)
+	}, 1000)
 
 	return () => {
 		clearInterval(interval)
 	}
 })
+
+let secondsCounter = 0
+export const minuteer = derived(secondeer, (date, set) => {
+	if (secondsCounter++ === 60)
+		set(date)
+
+	return () => {}
+}, new Date())

@@ -13,6 +13,7 @@
 	export let minimumBidStep = 0
 	export let ownerId = null
 	export let lastBid = null
+	export let compact = false
 
 	let currentBid = 0
 	let amountFocused = false
@@ -22,6 +23,7 @@
 	$: onFocusChanged(amountFocused)
 
 	$: isAuthor = $userStore && $userStore.id === ownerId
+	$: console.log("author:", isAuthor)
 	$: isAuthorOfLastBid = (lastBid && lastBid.user_id) === ($userStore && $userStore.id || "not_matching")
 
 	function onLastBidChanged(bid) {
@@ -118,22 +120,22 @@
 	})
 </script>
 
-<form class="mb-3" on:submit={onSubmit}>
-	<div class="columns">
-		<div class="column">
-			{#if userStatus === "joined"}
-				<NumberInput
-					value={currentBid}
-					label="Your bid"
-					required
-					isHorizontal
-					on:focus={() => amountFocused = true}
-					on:blur={() => amountFocused = false}
-					on:input={({detail: d}) => currentBid = d}
-				/>
-			{/if}
-		</div>
-		{#if !isAuthor}
+{#if !isAuthor}
+	<form class="mb-3" on:submit={onSubmit}>
+		<div class="columns">
+			<div class="column">
+				{#if userStatus === "joined"}
+					<NumberInput
+						value={currentBid}
+						label={!compact && "Your bid" || ""}
+						required
+						isHorizontal
+						on:focus={() => amountFocused = true}
+						on:blur={() => amountFocused = false}
+						on:input={({detail: d}) => currentBid = d}
+					/>
+				{/if}
+			</div>
 			<div class="column is-narrow">
 				{#if userStatus === "joined"}
 					<TheButton
@@ -144,23 +146,27 @@
 					>
 						Place bid
 					</TheButton>
-					<TheButton
-						isWarning
-						disabled={isAuthorOfLastBid}
-						title={isAuthorOfLastBid && "You are the author of last bid - cannot leave auction now" || null}
-						on:click={onLeaveBidding}
-					>
-						Leave bidding
-					</TheButton>
+					{#if !compact}
+						<TheButton
+							isWarning
+							disabled={isAuthorOfLastBid}
+							title={isAuthorOfLastBid && "You are the author of last bid - cannot leave auction now" || null}
+							on:click={onLeaveBidding}
+						>
+							Leave bidding
+						</TheButton>
+					{/if}
 				{:else}
-					<TheButton
-						isPrimary
-						on:click={onJoinBidding}
-					>
-						Join bidding
-					</TheButton>
+					{#if !compact}
+						<TheButton
+							isPrimary
+							on:click={onJoinBidding}
+						>
+							Join bidding
+						</TheButton>
+					{/if}
 				{/if}
 			</div>
-		{/if}
-	</div>
-</form>
+		</div>
+	</form>
+{/if}

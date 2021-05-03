@@ -44,7 +44,17 @@ defmodule BiddingPoc.AuctionManager do
     skip = Map.get(params, "skip")
     take = Map.get(params, "take")
 
-    AuctionItem.get_last_auctions(search, user_id, category_id, skip, take)
+    AuctionItem.get_oldest_auctions(search, user_id, category_id, skip, take)
+  end
+
+  @spec get_my_auctions_for_user(pos_integer(), map()) :: [AuctionItem.t()]
+  def get_my_auctions_for_user(user_id, params) do
+    search = Map.get(params, "search")
+    category_id = Map.get(params, "category_id")
+    skip = Map.get(params, "skip")
+    take = Map.get(params, "take")
+
+    AuctionItem.get_my_auctions_for_user(user_id, search, category_id, skip, take)
   end
 
   @spec get_auction_users(pos_integer()) :: [%{:__struct__ => atom(), user_status: atom()}]

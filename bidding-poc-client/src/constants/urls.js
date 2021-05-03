@@ -1,5 +1,5 @@
 const Production = process.env.SVELTE_APP_PRODUCTION === "true"
-const ServerHostname = process.env.SVELTE_APP_SERVER_HOSTNAME
+const ServerHost = new URL(process.env.SVELTE_APP_SERVER_HOSTNAME)
 
-export const ApiUrl = Production ? "/api" : `http://${ServerHostname}/api`
-export const SocketUrl = Production ? "/socket" : `ws://${ServerHostname}/socket`
+export const ApiUrl = Production ? "/api" : `${ServerHost.toString()}api`
+export const SocketUrl = Production ? "/socket" : `wss://${ServerHost.host}/socket`

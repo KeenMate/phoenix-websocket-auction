@@ -10,7 +10,7 @@ defmodule BiddingPocWeb.Endpoint do
     signing_salt: "EIcpSGWr"
   ]
 
-  plug CORSPlug, origin: ["http://localhost:5000"]
+  plug CORSPlug, origin: ["https://localhost:5000"]
 
   socket "/socket", BiddingPocWeb.UserSocket,
     websocket: true,
