@@ -27,7 +27,7 @@
 	function onSubmit(ev) {
 		ev.preventDefault()
 
-		if (!title || !categoryId || !startPrice || startPrice < 0 || biddingEnd < new Date()) {
+		if (!title || !categoryId || startPrice < 0 || biddingEnd < new Date()) {
 			toastr.error("Form is filled incorrectly", {timeOut: "5000"})
 			return
 		}

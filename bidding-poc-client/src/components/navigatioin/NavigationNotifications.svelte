@@ -2,6 +2,7 @@
 	import notifications, {removeNotification} from "../../stores/notifications"
 	import FlashIcon from "./FlashIcon.svelte"
 	import NavButton from "./NavButton.svelte"
+	import NavTabItem from "./NavTabItem.svelte"
 
 	function getNotificationColor(notification) {
 		switch (notification.type) {
@@ -33,9 +34,9 @@
 </script>
 
 {#if !$notifications.length}
-	<NavButton>
+	<NavTabItem>
 		Notifications
-	</NavButton>
+	</NavTabItem>
 {:else}
 	<div class="navbar-item has-dropdown is-hoverable">
 		<a class="navbar-link">

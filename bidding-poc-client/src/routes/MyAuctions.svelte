@@ -1,12 +1,14 @@
 <script>
-	import AuctionQuickCard from "../components/auction-item/AuctionQuickCard.svelte"
 	import {parse, stringify} from "qs"
 	import {location, push, querystring} from "svelte-spa-router"
 	import {stringToNumber} from "../helpers/parser"
+	import lazyLoader from "../helpers/lazy-loader"
 	import {getAuctionCategories, getMyAuctions} from "../providers/socket/auctions"
+	import {userStore} from "../providers/auth"
 	import Notification from "../components/ui/Notification.svelte"
 	import AuctionCategoriesMenu from "../components/auctions/AuctionCategoriesMenu.svelte"
 	import AuctionItemsFilters from "../components/auctions/AuctionItemsFilters.svelte"
+	import MyAuctionsList from "../components/auctions/MyAuctionsList.svelte"
 
 	// let auction = {
 	// 	title: "Dummy auction",
@@ -15,15 +17,19 @@
 	//  lastBid: {amount: 123}
 	// }
 
-	let categories = []
+	// let categories = []
+	let ownerAuctions = []
+	let joinedAuctions = []
+	let followedAuctions = []
+	let auctionsLoading = false
 
 	let categoriesTask = getAuctionCategories()
-		.then(ctx => categories = ctx)
-		.catch(error => {
-			console.error("Could not load auction categories", error)
-			toastr.error("Could not load auction categories")
-			throw error
-		})
+	// .then(ctx => categories = ctx)
+	// .catch(error => {
+	// 	console.error("Could not load auction categories", error)
+	// 	toastr.error("Could not load auction categories")
+	// 	throw error
+	// })
 
 	$: parsedQuerystring = parse($querystring)
 	$: searchText = parsedQuerystring.search || ""
@@ -31,17 +37,39 @@
 	$: page = stringToNumber(parsedQuerystring.page, 0)
 	$: pageSize = stringToNumber(parsedQuerystring.pageSize, 10)
 	$: auctionItemsTask = getMyAuctions(searchText, selectedCategory, page, pageSize)
+		.then(bucketAuctions)
+		.catch(error => {
+			console.error("Could not load my auctions")
+			throw error
+		})
+	$: lazyAuctionsTask = auctionItemsTask && lazyLoader(auctionItemsTask, toggleAuctionsLoading, toggleAuctionsLoading)
+
+	function toggleAuctionsLoading() {
+		auctionsLoading = !auctionsLoading
+	}
+
 	// todo: Init socket channels for each active, joined auction (with self-destruction :))
 
-	// $: auctionsWithCategoriesTask = auctionItemsTask && categoriesTask && Promise.all([auctionItemsTask, categoriesTask])
-	// 	.then(([auctions, cats]) => {
-	// 		return auctions.map(x => {
-	// 			return {
-	// 				...x,
-	// 				category: cats.find(c => c.id === x.category_id)
-	// 			}
-	// 		})
-	// 	})
+	function bucketAuctions(auctions) {
+		const ownerAuctionsLocal = []
+		const joinedAuctionsLocal = []
+		const followedAuctionsLocal = []
+
+		auctions.forEach(x => {
+			if (x.user_id === $userStore.id)
+				ownerAuctionsLocal.push(x)
+			else if (x.user_status === "joined")
+				joinedAuctionsLocal.push(x)
+			else if (x.user_status === "following")
+				followedAuctionsLocal.push(x)
+			else
+				console.warn("This auction is 'my auction' but it could not be categorized", x)
+		})
+
+		ownerAuctions = ownerAuctionsLocal
+		joinedAuctions = joinedAuctionsLocal
+		followedAuctions = followedAuctionsLocal
+	}
 
 	function onSelectCategory({detail: category}) {
 		const newPartial = {...parsedQuerystring, category: category && category.id || undefined}
@@ -56,18 +84,11 @@
 
 <div class="columns">
 	<div class="column is-2">
-		{#await categoriesTask}
-			<Notification>Loading categories</Notification>
-		{:then _}
-			<AuctionCategoriesMenu
-				{categories}
-				{selectedCategory}
-				on:selectCategory={onSelectCategory}
-			/>
-		{:catch error}
-			{@debug error}
-			<h4 class="is-text-4">Could not load categories</h4>
-		{/await}
+		<AuctionCategoriesMenu
+			{categoriesTask}
+			{selectedCategory}
+			on:selectCategory={onSelectCategory}
+		/>
 	</div>
 	<div class="column">
 		<AuctionItemsFilters
@@ -75,19 +96,13 @@
 			on:updateSearchText={onUpdateSearchText}
 		/>
 		{#await auctionItemsTask}
-			<Notification>Loading auction items</Notification>
-		{:then auctionItems}
-			<div class="columns is-multiline">
-				{#each auctionItems as auction}
-					<div class="column is-3">
-						<!-- todo: Add event listeners -->
-						<AuctionQuickCard
-							{auction}
-							lastBid={auction.lastBid}
-						/>
-					</div>
-				{/each}
-			</div>
+			{#if auctionsLoading}
+				<Notification>Loading auction items</Notification>
+			{/if}
+		{:then _}
+			<MyAuctionsList title="Your auctions" auctions={ownerAuctions} />
+			<MyAuctionsList title="Joined auctions" auctions={joinedAuctions} />
+			<MyAuctionsList title="Followed auctions" auctions={followedAuctions} />
 		{:catch error}
 			{@debug error}
 			<h4 class="is-text-4">Could not load auction items</h4>

@@ -393,6 +393,19 @@ defdatabase BiddingPoc.Database do
       end
     end
 
+    @spec get_user_auctions_categories(pos_integer()) :: [t()]
+    def get_user_auctions_categories(user_id) do
+      Amnesia.transaction do
+        user_id
+        |> AuctionItem.get_user_auctions()
+        |> Enum.reduce([], fn auction, categories -> [auction.category_id | categories] end)
+        |> Stream.map(&get_by_id/1)
+        |> Stream.filter(&(elem(&1, 0) == :ok))
+        |> Stream.map(&elem(&1, 1))
+        |> Enum.to_list()
+      end
+    end
+
     @doc """
     Returns categories sorted alphabetically
     """
@@ -523,6 +536,7 @@ defdatabase BiddingPoc.Database do
           |> UserInAuction.get_user_auctions()
           |> Enum.map(& &1.auction_id)
 
+        now = DateTime.now!(Common.timezone)
         get_auctions(
           fn auction ->
             (
@@ -531,23 +545,6 @@ defdatabase BiddingPoc.Database do
             )
             && if(category_id, do: auction.category_id == category_id, else: true)
             && if(search, do: auction.title =~ ~r/#{search}/i, else: true)
-          end)
-        |> Stream.drop(skip)
-        |> Stream.take(take)
-        |> Stream.map(&with_category_and_user_status(&1, user_id))
-        |> Enum.to_list()
-      end
-    end
-
-    @spec get_oldest_auctions(binary() | nil, pos_integer() | nil, pos_integer() | nil, non_neg_integer(), pos_integer()) :: [t()]
-    def get_oldest_auctions(search \\ nil, user_id \\ nil, category_id \\ nil, skip \\ 0, take \\ 10) do
-      now = DateTime.now!(Common.timezone)
-      Amnesia.transaction do
-        get_auctions(
-          fn auction ->
-            if(search, do: auction.title =~ ~r/#{search}/i, else: true)
-            && if(category_id, do: auction.category_id == category_id, else: true)
-            && if(user_id, do: auction.user_id == user_id, else: true)
           end,
           fn l, r ->
             l_bidding_end = elem(l, 8)
@@ -560,9 +557,35 @@ defdatabase BiddingPoc.Database do
           end)
         |> Stream.drop(skip)
         |> Stream.take(take)
+        |> Stream.map(&with_category_and_user_status(&1, user_id))
         |> Enum.to_list()
       end
     end
+
+    # @spec get_oldest_auctions(binary() | nil, pos_integer() | nil, pos_integer() | nil, non_neg_integer(), pos_integer()) :: [t()]
+    # def get_oldest_auctions(search \\ nil, user_id \\ nil, category_id \\ nil, skip \\ 0, take \\ 10) do
+    #   now = DateTime.now!(Common.timezone)
+    #   Amnesia.transaction do
+    #     get_auctions(
+    #       fn auction ->
+    #         if(search, do: auction.title =~ ~r/#{search}/i, else: true)
+    #         && if(category_id, do: auction.category_id == category_id, else: true)
+    #         && if(user_id, do: auction.user_id == user_id, else: true)
+    #       end,
+    #       fn l, r ->
+    #         l_bidding_end = elem(l, 8)
+    #         r_bidding_end = elem(r, 8)
+    #         if l_bidding_end && r_bidding_end do
+    #           DateTime.diff(now, l_bidding_end) < DateTime.diff(now, r_bidding_end)
+    #         else
+    #           true
+    #         end
+    #       end)
+    #     |> Stream.drop(skip)
+    #     |> Stream.take(take)
+    #     |> Enum.to_list()
+    #   end
+    # end
 
     @spec get_auctions((t() -> boolean()) | nil, (t(), t() -> boolean()) | nil) :: Enumerable.t(t())
     @doc """
@@ -655,15 +678,44 @@ defdatabase BiddingPoc.Database do
       end
     end
 
-    @spec get_user_auctions(pos_integer()) :: [t()]
-    def get_user_auctions(user_id) when is_number(user_id) do
+    @spec get_user_auctions(pos_integer(), pos_integer() | nil) :: [t()]
+    def get_user_auctions(user_id, category_id \\ nil) when is_number(user_id) do
+      # TODO: add pagination
+      now = DateTime.now!(Common.timezone)
       Amnesia.transaction do
-        match(user_id: user_id)
-        |> Amnesia.Selection.values()
+        get_auctions(
+          fn auction ->
+            auction.user_id == user_id
+            && if(category_id, do: auction.category_id == category_id, else: true)
+          end,
+          fn l, r ->
+            l_bidding_end = elem(l, 8)
+            r_bidding_end = elem(r, 8)
+            if l_bidding_end && r_bidding_end do
+              DateTime.diff(l_bidding_end, now) < DateTime.diff(r_bidding_end, now)
+            else
+              true
+            end
+          end)
+        # |> Stream.drop(skip)
+        # |> Stream.take(take)
+        # |> Stream.map(&with_category_and_user_status(&1, user_id))
+        |> Enum.to_list()
+
+
+        # [
+        #   {:user_id, user_id},
+        #   if category_id do
+        #     {:category_id, category_id}
+        #   end
+        # ]
+        # |> Enum.filter(& &1)
+        # |> match()
+        # |> Amnesia.Selection.values()
       end
     end
 
-    @spec get_category_auctions(pos_integer(), pos_integer(), pos_integer()) :: [t()]
+    @spec get_category_auctions(pos_integer(), non_neg_integer(), pos_integer()) :: [t()]
     def get_category_auctions(category_id, skip \\ 0, take \\ 10)
         when is_number(category_id) and is_number(skip) and is_number(take) do
       Amnesia.transaction do

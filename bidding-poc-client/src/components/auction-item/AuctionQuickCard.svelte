@@ -1,15 +1,16 @@
 <script>
+	import {onDestroy, onMount} from "svelte"
 	import m from "moment"
+	import {getAuctionItemUrl} from "../../routes"
 	import {secondeer} from "../../stores/other"
 	import {formatDuration} from "../../helpers/date-duration"
 	import AuctionItemBiddingForm from "./AuctionItemBiddingForm.svelte"
-	import {onDestroy, onMount} from "svelte"
 
 	export let auction = null
 	export let lastBid = null
 
 	let remainingTime = "Unknown"
-	let ended = true
+	let auctionStatus = null
 	let secondeerSubscription
 
 	$: formattedBiddingEnd = auction && m(auction.bidding_end).toString()
@@ -23,12 +24,16 @@
 			if (!auction)
 				return
 
+			const biddingStartDiff = m(auction.bidding_start).diff()
 			const biddingEndDiff = m(auction.bidding_end).diff()
-			if (biddingEndDiff > 0) {
+			if (biddingStartDiff > 0) {
+				remainingTime = formatDuration(biddingStartDiff)
+				auctionStatus = "not_started"
+			} else if (biddingEndDiff > 0) {
 				remainingTime = formatDuration(biddingEndDiff)
-				ended = false
+				auctionStatus = "not_ended"
 			}	else {
-				ended = true
+				auctionStatus = "ended"
 				destroySubscription()
 			}
 		})
@@ -45,7 +50,9 @@
 			<div class="card-header-title">
 				<div class="columns is-fullwidth">
 					<div class="column">
-						{auction.title}
+						<a href="#{getAuctionItemUrl(auction.id)}">
+							{auction.title}
+						</a>
 					</div>
 					<div class="column is-narrow">
 						{#if lastBid}
@@ -56,13 +63,15 @@
 						{/if}
 						<span
 							class="tag is-light is-rounded ml-1"
-							class:is-danger={ended}
-							class:is-warning={!ended}
+							class:is-danger={auctionStatus === "ended"}
+							class:is-warning={auctionStatus !== "started"}
 							title="Time left for this auction: {formattedBiddingEnd}"
 						>
-							{#if ended}
+							{#if auctionStatus === "ended"}
 								Bidding ended
-							{:else}
+							{:else if auctionStatus === "not_started"}
+								Starts in: {remainingTime}
+							{:else if auctionStatus === "not_ended"}
 								Remaining: {remainingTime}
 							{/if}
 						</span>

@@ -1,11 +1,12 @@
 <script>
 	import {location} from "svelte-spa-router"
 	import {Urls} from "../../routes"
-	import NavButton from "./NavButton.svelte"
 	import UserProfileNavButton from "./UserProfileNavButton.svelte"
 	import HamburgerButton from "./HamburgerButton.svelte"
 	import BrandLogo from "./BrandLogo.svelte"
-	import NavigationNotifications from "./NavigationNotifications.svelte"
+	// import NavigationNotifications from "./NavigationNotifications.svelte"
+	import NavTabItem from "./NavTabItem.svelte"
+	import Tabs from "../ui/Tabs.svelte"
 
 	export let user = {}
 
@@ -26,29 +27,28 @@
 	</div>
 
 	<div id="navbarBasicExample" class="navbar-menu" class:is-active={navExpanded}>
-		<div class="navbar-start">
-			<NavButton link={Urls.MyAuctions}>
-				My auctions
-			</NavButton>
-			<NavButton link={Urls.Auctions}>
-				Auctions
-			</NavButton>
-
-			{#if user}
-				<NavButton link={Urls.NewAuctionItem}>
-					New auction item
-				</NavButton>
-			{/if}
-
-			{#if user && user.is_admin}
-				<NavButton link={Urls.Users}>
-					Users
-				</NavButton>
-			{/if}
-		</div>
 
 		<div class="navbar-end">
-			<NavigationNotifications />
+			<Tabs isNavbar>
+				{#if user}
+					<NavTabItem link={Urls.MyAuctions}>
+						My auctions
+					</NavTabItem>
+					<NavTabItem link={Urls.Auctions}>
+						Auctions
+					</NavTabItem>
+					<NavTabItem link={Urls.NewAuctionItem}>
+						New auction item
+					</NavTabItem>
+					{#if user.is_admin}
+						<NavTabItem link={Urls.Users}>
+							Users
+						</NavTabItem>
+					{/if}
+					<UserProfileNavButton displayName={user.display_name} />
+				{/if}
+			</Tabs>
+			<!--<NavigationNotifications />-->
 			<div class="navbar-item">
 				{#if !user}
 					<div class="buttons">
@@ -63,10 +63,9 @@
 							</a>
 						{/if}
 					</div>
-				{:else}
-					<UserProfileNavButton displayName={user.display_name} />
 				{/if}
 			</div>
 		</div>
 	</div>
 </nav>
+

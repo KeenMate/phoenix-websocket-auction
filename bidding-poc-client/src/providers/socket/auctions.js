@@ -2,11 +2,11 @@ import {writable} from "svelte/store"
 import {joinChannel, pushSocketMessage} from "./common"
 import eventBus from "../../helpers/event-bus"
 
-export const auctionChannel = writable(null)
+export const auctionsChannel = writable(null)
 
-const auctionChannelAwaiter = new Promise(resolve => {
+const auctionsChannelAwaiter = new Promise(resolve => {
 	let unsubscribe
-	unsubscribe = auctionChannel.subscribe(val => {
+	unsubscribe = auctionsChannel.subscribe(val => {
 		if (!val)
 			return
 
@@ -27,7 +27,7 @@ export function initAuctionsChannel(socket) {
 }
 
 export async function createAuction(auction) {
-	const channel = await auctionChannelAwaiter
+	const channel = await auctionsChannelAwaiter
 
 	return pushSocketMessage(channel, "create_auction", {
 		title: auction.title,
@@ -39,8 +39,16 @@ export async function createAuction(auction) {
 	})
 }
 
+/**
+ * @desc Lists all auctions
+ * @param search
+ * @param categoryId
+ * @param page
+ * @param pageSize
+ * @returns {Promise<Array>}
+ */
 export async function getAuctions(search, categoryId, page, pageSize) {
-	const channel = await auctionChannelAwaiter
+	const channel = await auctionsChannelAwaiter
 
 	return pushSocketMessage(channel, "get_auctions", {
 		search: search || null,
@@ -50,8 +58,16 @@ export async function getAuctions(search, categoryId, page, pageSize) {
 	})
 }
 
+/**
+ * @desc Returns auctions for current user (that are owned, followed or joined)
+ * @param search
+ * @param categoryId
+ * @param page
+ * @param pageSize
+ * @returns {Promise<Array>}
+ */
 export async function getMyAuctions(search, categoryId, page, pageSize) {
-	const channel = await auctionChannelAwaiter
+	const channel = await auctionsChannelAwaiter
 
 	return pushSocketMessage(channel, "get_my_auctions", {
 		search: search || null,
@@ -61,8 +77,42 @@ export async function getMyAuctions(search, categoryId, page, pageSize) {
 	})
 }
 
+/**
+ * @desc Returns user's auctions
+ * @param userId
+ * @param categoryId
+ * @returns {Promise<unknown>}
+ */
+export async function getUserAuctions(userId, categoryId) {
+	const channel = await auctionsChannelAwaiter
+
+	return pushSocketMessage(
+		channel,
+		"get_user_auctions",
+		{
+			user_id: userId,
+			category_id: categoryId
+		}
+	)
+}
+
+/**
+ * @desc Returns categories that are used by user' auctions
+ * @param userId
+ * @returns {Promise<Array>}
+ */
+export async function getUserAuctionsCategories(userId) {
+	const channel = await auctionsChannelAwaiter
+
+	return pushSocketMessage(channel, "get_user_auctions_categories", {user_id: userId})
+}
+
+/**
+ * @desc Returns all available categories
+ * @returns {Promise<unknown>}
+ */
 export async function getAuctionCategories() {
-	const channel = await auctionChannelAwaiter
+	const channel = await auctionsChannelAwaiter
 
 	return pushSocketMessage(channel, "get_auction_categories")
 }
@@ -96,6 +146,6 @@ function listenAuctionEnded(channel) {
 }
 
 export async function deleteAuction(auctionId) {
-	const channel = await auctionChannelAwaiter
+	const channel = await auctionsChannelAwaiter
 	return pushSocketMessage(channel, "delete_auction", {auction_id: auctionId})
 }

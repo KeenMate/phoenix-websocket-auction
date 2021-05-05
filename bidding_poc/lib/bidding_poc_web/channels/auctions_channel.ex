@@ -55,6 +55,28 @@ defmodule BiddingPocWeb.AuctionsChannel do
     }
   end
 
+  def handle_in("get_user_auctions", %{"user_id" => user_id, "category_id" => category_id}, socket) do
+    {
+      :reply,
+      {
+        :ok,
+        AuctionItem.get_user_auctions(user_id, category_id)
+      },
+      socket
+    }
+  end
+
+  def handle_in("get_user_auctions_categories", %{"user_id" => user_id}, socket) do
+    {
+      :reply,
+      {
+        :ok,
+        AuctionItemCategory.get_user_auctions_categories(user_id)
+      },
+      socket
+    }
+  end
+
   def handle_in("get_auction_categories", _payload, socket) do
     {:reply, {:ok, AuctionItemCategory.get_categories()}, socket}
   end

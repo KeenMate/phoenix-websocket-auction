@@ -44,6 +44,7 @@ export default {
 	[Urls.Auctions]: Auctions,
 	[Urls.MyAuctions]: MyAuctions,
 	[Urls.Users]: Users,
+	[Urls.UserProfile]: Profile,
 	[Urls.UserEdit]: UserDetail,
 	[Urls.NewAuctionItem]: NewAuctionItem,
 	[Urls.AuctionItem]: AuctionItem,
