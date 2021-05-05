@@ -95,7 +95,7 @@
 			{searchText}
 			on:updateSearchText={onUpdateSearchText}
 		/>
-		{#await auctionItemsTask}
+		{#await lazyAuctionsTask}
 			{#if auctionsLoading}
 				<Notification>Loading auction items</Notification>
 			{/if}
