@@ -13,8 +13,7 @@ config :bidding_poc, BiddingPocWeb.Endpoint,
   secret_key_base: "szUoYl7SmCGXUjdJ0uGydzCea/JswdnzRtAfz5ZfoSANfCgQOcsKeCIOT399x/ul",
   render_errors: [view: BiddingPocWeb.ErrorView, accepts: ~w(json), layout: false],
   pubsub_server: BiddingPoc.PubSub,
-  live_view: [signing_salt: "PzIJw9V3"],
-  force_ssl: [hsts: true]
+  live_view: [signing_salt: "PzIJw9V3"]
 
 # Configures Elixir's Logger
 config :logger, :console,

@@ -7,16 +7,10 @@ import Config
 # watchers to your application. For example, we use it
 # with webpack to recompile .js and .css sources.
 config :bidding_poc, BiddingPocWeb.Endpoint,
-  https: [
-    port: 4000,
-    cipher_suite: :strong,
-    keyfile: "priv/cert/selfsigned_key.pem",
-    certfile: "priv/cert/selfsigned.pem"
-  ],
+  http: [port: 4000],
   debug_errors: true,
   code_reloader: true,
   check_origin: false
-
 
 # Place this in /config/.local.exs to make hot-reload work from within erlang vm
 # config :bidding_poc, BiddingPocWeb.Endpoint,
@@ -28,7 +22,6 @@ config :bidding_poc, BiddingPocWeb.Endpoint,
 #     cd: Path.expand("../../bidding-poc-client", __DIR__)
 #   ]
 # ]
-
 
 # ## SSL Support
 #
