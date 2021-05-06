@@ -2,6 +2,7 @@
 	import {createEventDispatcher} from "svelte"
 
 	export let label = ""
+	export let placeholder = ""
 	export let value = 0
 	export let required = false
 	export let isHorizontal = false
@@ -30,6 +31,7 @@
 						class="input"
 						type="number"
 						{value}
+						{placeholder}
 						{required}
 						on:focus
 						on:blur
@@ -49,6 +51,7 @@
 				class="input"
 				type="number"
 				{value}
+				{placeholder}
 				{required}
 				on:input={onInput}
 			>

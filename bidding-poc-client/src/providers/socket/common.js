@@ -1,18 +1,31 @@
 import {Socket} from "phoenix"
 import {writable} from "svelte/store"
-import { SocketUrl } from "../../constants/urls"
+import {SocketUrl} from "../../constants/urls"
 
 export const socket = writable(null)
+
+export const socketConnected = writable(false)
 
 export function createSocket(token) {
 	if (!token)
 		throw new Error("Cannot create socket because token is missing")
 
-	return new Socket(SocketUrl, {
+	const socket = new Socket(SocketUrl, {
 		params: {
 			token
 		}
 	})
+
+	socket.onClose(reason => {
+		console.error("Socket closed: ", reason)
+		socketConnected.set(false)
+	})
+	socket.onOpen(() => {
+		console.log("Socket connected")
+		socketConnected.set(true)
+	})
+
+	return socket
 }
 
 export function pushSocketMessage(channel, type, payload = {}) {

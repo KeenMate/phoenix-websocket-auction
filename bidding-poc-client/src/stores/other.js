@@ -15,5 +15,5 @@ export const minuteer = derived(secondeer, (date, set) => {
 	if (secondsCounter++ === 60)
 		set(date)
 
-	return () => {}
+	// return () => {}
 }, new Date())

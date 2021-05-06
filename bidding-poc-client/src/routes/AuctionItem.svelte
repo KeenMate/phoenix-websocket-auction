@@ -6,16 +6,21 @@
 	import {userStore} from "../providers/auth"
 	import {deleteAuction} from "../providers/socket/auctions"
 	import {
-		getAuctionBids,
+		getAuctionBids, initAuctionBiddingChannel,
 		initAuctionChannels,
 		joinAuction,
 		leaveAuction,
 		placeBid,
 		toggleFollow
 	} from "../providers/socket/auction"
-	// import {getUser} from "../providers/socket/user"
 	import lazyLoader from "../helpers/lazy-loader"
 	import toastr from "../helpers/toastr-helpers"
+	import {
+		toastAuctionJoined,
+		toastBidRequested,
+		toastCouldNotJoinAuction,
+		toastCouldNotPlaceBid
+	} from "../helpers/toastr-messages"
 	import eventBus from "../helpers/event-bus"
 	import {minuteer} from "../stores/other"
 	import Notification from "../components/ui/Notification.svelte"
@@ -63,6 +68,13 @@
 	}
 
 	function initChannels(theSocket, auctionId) {
+		if (auctionChannel)
+			auctionChannel.leave()
+		if (biddingChannel)
+			biddingChannel.leave()
+		if (presenceChannel)
+			presenceChannel.leave()
+
 		theSocket && initAuctionChannels(theSocket, auctionId)
 			.then(result => {
 				const {
@@ -142,13 +154,13 @@
 
 		joinAuction(auctionChannel)
 			.then(() => {
-				toastr.success("Auction joined!")
+				toastAuctionJoined()
 				console.log("Auction joined")
 				auctionItem.user_status = "joined"
 			})
 			.catch(error => {
 				console.error("Could not join auction", error)
-				toastr.error("Could not join auction")
+				toastCouldNotJoinAuction()
 			})
 	}
 
@@ -204,11 +216,11 @@
 	function onPlaceBid({detail: bid}) {
 		placeBid(biddingChannel, bid)
 			.then(() => {
-				toastr.success("Bid place requested", {timeOut: "1000"})
+				toastBidRequested()
 			})
 			.catch(error => {
 				console.error("Could not place bid", error)
-				toastr.error("Could not place bid", {timeOut: "5000"})
+				toastCouldNotPlaceBid()
 			})
 	}
 

@@ -7,7 +7,6 @@
 	import AuctionItemBiddingForm from "./AuctionItemBiddingForm.svelte"
 
 	export let auction = null
-	export let lastBid = null
 
 	let remainingTime = "Unknown"
 	let auctionStatus = null
@@ -55,11 +54,11 @@
 						</a>
 					</div>
 					<div class="column is-narrow">
-						{#if lastBid}
+						{#if auction && auction.last_bid}
 							<span
 								class="tag is-light is-primary is-rounded ml-1"
 								title="The last bid for this auction"
-							>Last bid: {lastBid.amount}</span>
+							>Last bid: {auction && auction.last_bid.amount}</span>
 						{/if}
 						<span
 							class="tag is-light is-rounded ml-1"
@@ -84,15 +83,18 @@
 				{#if auction.category}
 					<span class="tag is-light is-info is-rounded mb-2">{auction.category}</span>
 				{/if}
-				{#if auction.user_status === "joined"}
+				{#if ["joined", "following"].includes(auction.user_status)}
+					<AuctionItemBiddingForm
+						auctionId={auction.id}
+						userStatus={auction.user_status}
+						ownerId={auction.user_id}
+						minimumBidStep={auction.minimum_bid_step}
+						compact
+						on:placeBid
+						on:joinBidding
+						on:leaveBidding
+					/>
 				{/if}
-				<AuctionItemBiddingForm
-					auctionId={auction.id}
-					userStatus={auction.user_status}
-					ownerId={auction.user_id}
-					minimumBidStep={auction.minimum_bid_step}
-					compact
-				/>
 			</div>
 		</div>
 		<footer class="card-footer">

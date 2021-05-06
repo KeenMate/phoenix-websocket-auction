@@ -8,7 +8,7 @@
 	import {auctionsChannel, initAuctionsChannel} from "./providers/socket/auctions"
 	import {initUserChannel, initUsersChannel, usersChannel} from "./providers/socket/user"
 	import {getCurrentUser} from "./providers/user"
-	import {createSocket, socket} from "./providers/socket/common"
+	import {createSocket, socket, socketConnected} from "./providers/socket/common"
 	import Navigation from "./components/navigatioin/Navigation.svelte"
 
 	$: $authTokenStore && onAuthToken($authTokenStore)

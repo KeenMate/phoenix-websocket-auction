@@ -128,6 +128,7 @@
 					<NumberInput
 						value={currentBid}
 						label={!compact && "Your bid" || ""}
+						placeholder="Your bid"
 						required
 						isHorizontal
 						on:focus={() => amountFocused = true}

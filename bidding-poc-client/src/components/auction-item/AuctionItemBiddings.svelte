@@ -19,7 +19,11 @@
 		{#each biddings as itemBid (itemBid.id)}
 			<tr>
 				<td>
-					<UserLink user={{id: itemBid.user_id, display_name: itemBid.user_display_name}} />
+					{#if !isNaN(Number(itemBid.user_id))}
+						<UserLink user={{id: itemBid.user_id, display_name: itemBid.user_display_name}} />
+					{:else}
+						{itemBid.user_display_name}
+					{/if}
 				</td>
 				<td>{itemBid.amount}</td>
 				<td>{m(itemBid.inserted_at).fromNow()}</td>
