@@ -11,6 +11,7 @@
 
 	export let title = ""
 	export let user_id = null
+	export let user_display_name = null
 	export let category_id = 0
 	export let category = ""
 	export let description = ""
@@ -20,7 +21,7 @@
 	export let bidding_end = null
 	export let user_status = "nothing"
 
-	export let auctionOwner = null
+	// export let auctionOwner = null
 
 	$: biddingStartMoment = bidding_start && m(bidding_start)
 	$: biddingStartedRelative = $minuteer && biddingStartMoment && biddingStartMoment.fromNow()
@@ -112,8 +113,8 @@
 		{/if}
 		<br>
 		<b>Creator: </b>
-		{#if auctionOwner}
-			<UserLink user={auctionOwner} />
+		{#if user_display_name}
+			<UserLink user={{display_name: user_display_name, id: user_id}} />
 			<br>
 		{/if}
 	</div>

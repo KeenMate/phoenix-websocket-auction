@@ -661,7 +661,7 @@ defdatabase BiddingPoc.Database do
                {:category, AuctionItemCategory.get_by_id(auction.category_id)} do
           auction_with_additional_info =
             auction
-            |> Map.put(:username, user.username)
+            |> Map.put(:user_display_name, user.display_name)
             |> Map.put(:category, category.title)
 
           {:ok, auction_with_additional_info}

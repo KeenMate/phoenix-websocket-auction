@@ -17,13 +17,13 @@
 
 	$: lazyCategoriesTask = categoriesTask && lazyLoader(
 		categoriesTask,
-		toggleCategoriesLoading,
-		toggleCategoriesLoading
+		() => categoriesLoading = true,
+		() => categoriesLoading = false
 	)
 	$: lazyAuctionsTask = auctionsTask && lazyLoader(
 		auctionsTask,
-		toggleAuctionsLoading,
-		toggleAuctionsLoading
+		() => auctionsLoading = true,
+		() => auctionsLoading = false
 	)
 
 	function toggleAuctionsLoading() {

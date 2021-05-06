@@ -31,11 +31,11 @@
 		})
 
 	$: auctionItemsTask = getAuctions(searchText, selectedCategory, page, pageSize)
-	$: lazyAuctionsTask = auctionItemsTask && lazyLoader(auctionItemsTask, toggleAuctionsLoading, toggleAuctionsLoading)
-
-	function toggleAuctionsLoading() {
-		auctionsLoading = !auctionsLoading
-	}
+	$: lazyAuctionsTask = auctionItemsTask && lazyLoader(
+		auctionItemsTask,
+		() => auctionsLoading = true,
+		() => auctionsLoading = false
+	)
 
 	function onSelectCategory({detail: category}) {
 		const newPartial = {...parsedQuerystring, category: category && category.id || undefined}

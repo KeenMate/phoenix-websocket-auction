@@ -10,11 +10,11 @@
 
 	let categoriesLoading = false
 
-	$: lazyCategoriesTask = categoriesTask && lazyLoader(categoriesTask, toggleCategoriesLoading, toggleCategoriesLoading)
-
-	function toggleCategoriesLoading() {
-		toggleCategoriesLoading = !toggleCategoriesLoading
-	}
+	$: lazyCategoriesTask = categoriesTask && lazyLoader(
+		categoriesTask,
+		() => categoriesLoading = true,
+		() => categoriesLoading = false
+	)
 
 	function onSelectCategory(category) {
 		dispatch("selectCategory", category)

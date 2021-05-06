@@ -13,6 +13,8 @@
 		placeBid,
 		toggleFollow
 	} from "../providers/socket/auction"
+	import {getUser} from "../providers/socket/user"
+	import lazyLoader from "../helpers/lazy-loader"
 	import toastr from "../helpers/toastr-helpers"
 	import eventBus from "../helpers/event-bus"
 	import {minuteer} from "../stores/other"
@@ -21,8 +23,9 @@
 	import AuctionItemBiddings from "../components/auction-item/AuctionItemBiddings.svelte"
 	import AuctionItemBiddingForm from "../components/auction-item/AuctionItemBiddingForm.svelte"
 	import AuctionItemActiveUsers from "../components/auction-item/AuctionItemActiveUsers.svelte"
-	import {getUser} from "../providers/socket/user"
 
+	const falsePromise = new Promise(() => {})
+	
 	export let params = {}
 
 	// channels
@@ -32,9 +35,11 @@
 
 	// auction item
 	let auctionItem = {}
-	let auctionOwner = null
 	let users = null
 	let biddings = []
+
+	let auctionItemLoadedTask = falsePromise
+	let auctionLoading = false
 
 	$: paramAuctionItemId = Number(params.id)
 
@@ -47,19 +52,11 @@
 	$: lastBid = biddings && biddings[0]
 
 	$: isAuthor = (auctionItem && $userStore) && auctionItem.user_id === $userStore.id
-	$: getAuctionOwner(auctionItem)
-
-	function getAuctionOwner(auction) {
-		if (!auction || !auction.user_id)
-			return
-
-		getUser(auction.user_id)
-			.then(user => auctionOwner = user)
-			.catch(error => {
-				console.error("Could not load auction owner", error, auction)
-				toastr.error("Could not load auction owner info")
-			})
-	}
+	$: lazyAuctionItemLoadedTask = lazyLoader(
+		auctionItemLoadedTask,
+		() => {auctionLoading = true},
+		() => {auctionLoading = false}
+	)
 	
 	function reassignAuctionItem() {
 		auctionItem = auctionItem
@@ -281,6 +278,7 @@
 
 	function onAuctionData(auction) {
 		auctionItem = auction
+		auctionItemLoadedTask = Promise.resolve(auction)
 	}
 
 	function eventBusListeners(add = false) {
@@ -317,42 +315,45 @@
 <section class="auction-item">
 	<div class="columns is-centered">
 		<div class="column is-4">
-			{#if !auctionItem}
-				<Notification>Loading auction item</Notification>
-			{:else}
+			{#await lazyAuctionItemLoadedTask}
+				{#if auctionLoading}
+					<Notification>Loading auction item</Notification>
+				{/if}
+			{:then _}
 				<AuctionItemDetail
 					{...auctionItem}
-					{auctionOwner}
 					on:toggleFollow={onToggleFollow}
 					on:deleteAuction={onDeleteAuction}
 				/>
-			{/if}
+			{/await}
 		</div>
 		<div class="column is-6">
-			{#if biddingEnded}
-				<Notification>
-					This auction has already ended
-				</Notification>
-			{:else if !biddingStarted}
-				<Notification>
-					This auction has not started yet
-				</Notification>
-			{:else if isAuthor}
-			{:else if biddingChannel}
-				<AuctionItemBiddingForm
-					auctionId={auctionItem.id}
-					userStatus={auctionItem.user_status}
-					minimumBidStep={auctionItem.minimum_bid_step}
-					{lastBid}
-					on:joinBidding={onJoinAuction}
-					on:leaveBidding={onLeaveAuction}
-					on:placeBid={onPlaceBid}
-				/>
-			{:else}
-				<Notification>
-					Auction connection is not established
-				</Notification>
-			{/if}
+			{#await lazyAuctionItemLoadedTask}
+				{#if biddingEnded}
+					<Notification>
+						This auction has already ended
+					</Notification>
+				{:else if !biddingStarted}
+					<Notification>
+						This auction has not started yet
+					</Notification>
+				{:else if isAuthor}
+				{:else if biddingChannel}
+					<AuctionItemBiddingForm
+						auctionId={auctionItem.id}
+						userStatus={auctionItem.user_status}
+						minimumBidStep={auctionItem.minimum_bid_step}
+						{lastBid}
+						on:joinBidding={onJoinAuction}
+						on:leaveBidding={onLeaveAuction}
+						on:placeBid={onPlaceBid}
+					/>
+				{:else}
+					<Notification>
+						Auction connection is not established
+					</Notification>
+				{/if}
+			{/await}
 
 			<AuctionItemBiddings {biddings} />
 		</div>

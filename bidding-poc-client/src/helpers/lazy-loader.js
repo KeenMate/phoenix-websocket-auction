@@ -14,6 +14,7 @@ export default function lazyLoader(resourceTask, showLoader, hideLoader) {
 		.then(res => {
 			if (!showLoader) {
 				clearTimeout(beforeShowTimer)
+				hideLoader()
 				return res
 			}
 
