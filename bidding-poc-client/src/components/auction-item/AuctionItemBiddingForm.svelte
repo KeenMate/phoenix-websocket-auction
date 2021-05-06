@@ -147,25 +147,25 @@
 					>
 						Place bid
 					</TheButton>
-					{#if !compact}
-						<TheButton
-							isWarning
-							disabled={isAuthorOfLastBid}
-							title={isAuthorOfLastBid && "You are the author of last bid - cannot leave auction now" || null}
-							on:click={onLeaveBidding}
-						>
-							Leave bidding
-						</TheButton>
-					{/if}
+					<!--{#if !compact}-->
+					<TheButton
+						isWarning
+						disabled={isAuthorOfLastBid}
+						title={isAuthorOfLastBid && "You are the author of last bid - cannot leave auction now" || null}
+						on:click={onLeaveBidding}
+					>
+						Leave bidding
+					</TheButton>
+					<!--{/if}-->
 				{:else}
-					{#if !compact}
-						<TheButton
-							isPrimary
-							on:click={onJoinBidding}
-						>
-							Join bidding
-						</TheButton>
-					{/if}
+					<!--{#if !compact}-->
+					<TheButton
+						isPrimary
+						on:click={onJoinBidding}
+					>
+						Join bidding
+					</TheButton>
+					<!--{/if}-->
 				{/if}
 			</div>
 		</div>

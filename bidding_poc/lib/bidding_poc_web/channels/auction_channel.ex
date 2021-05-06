@@ -81,7 +81,7 @@ defmodule BiddingPocWeb.AuctionChannel do
       {:error, :joined} = error ->
         {:reply, error, socket}
 
-      {:ok, status} = result ->
+      {:ok, status} ->
         new_socket =
           put_user_status(
             socket,
@@ -91,7 +91,7 @@ defmodule BiddingPocWeb.AuctionChannel do
             end
           )
 
-        {:reply, result, new_socket}
+        {:reply, {:ok, get_user_status(new_socket)}, new_socket}
     end
   end
 

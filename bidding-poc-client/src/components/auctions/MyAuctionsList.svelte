@@ -1,6 +1,9 @@
 <script>
+	import {createEventDispatcher} from "svelte"
 	import AuctionQuickCard from "../auction-item/AuctionQuickCard.svelte"
 	import Notification from "../ui/Notification.svelte"
+
+	const dispatch = createEventDispatcher()
 
 	export let title = null
 	export let auctions = []
@@ -20,6 +23,9 @@
 		dispatch("leaveBidding", auction)
 	}
 
+	function onToggleFollow(auction) {
+		dispatch("toggleFollow", auction)
+	}
 </script>
 
 {#if auctions && auctions.length}
@@ -35,6 +41,7 @@
 					on:placeBid={({detail: d}) => onPlaceBid(auction, d)}
 					on:joinBidding={() => onJoinBidding(auction)}
 					on:leaveBidding={() => onLeaveBidding(auction)}
+					on:toggleFollow={() => onToggleFollow(auction)}
 				/>
 			</div>
 		{:else}

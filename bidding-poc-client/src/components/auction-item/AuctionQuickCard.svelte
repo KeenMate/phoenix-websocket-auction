@@ -1,10 +1,12 @@
 <script>
-	import {onDestroy, onMount} from "svelte"
+	import {createEventDispatcher, onDestroy, onMount} from "svelte"
 	import m from "moment"
 	import {getAuctionItemUrl} from "../../routes"
 	import {secondeer} from "../../stores/other"
 	import {formatDuration} from "../../helpers/date-duration"
 	import AuctionItemBiddingForm from "./AuctionItemBiddingForm.svelte"
+
+	const dispatch = createEventDispatcher()
 
 	export let auction = null
 
@@ -97,12 +99,24 @@
 				{/if}
 			</div>
 		</div>
-		<footer class="card-footer">
-			<!-- todo: Render if user is owner/admin -->
-			<a href="#" class="card-footer-item">Edit</a>
+		{#if ["nothing", "following"].includes(auction.user_status)}
+			<footer class="card-footer">
+				<!-- todo: Render if user is owner/admin -->
+				<!--<a href="#" class="card-footer-item">Edit</a>-->
 
-			<a href="#" class="card-footer-item">UnFollow</a>
-		</footer>
+				<a
+					href="javascript:void(0);"
+					class="card-footer-item"
+					on:click={() => dispatch("toggleFollow")}
+				>
+					{#if auction.user_status === "following"}
+						UnFollow
+					{:else if auction.user_status === "nothing"}
+						Follow
+					{/if}
+				</a>
+			</footer>
+		{/if}
 	</div>
 {/if}
 

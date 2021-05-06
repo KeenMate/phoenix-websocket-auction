@@ -4,7 +4,13 @@
 	import {socket} from "../providers/socket/common"
 	import {getAuctionCategories, getMyAuctions} from "../providers/socket/auctions"
 	import {userStore} from "../providers/auth"
-	import {initAuctionBiddingChannel, initAuctionChannel, joinAuction, placeBid} from "../providers/socket/auction"
+	import {
+		initAuctionBiddingChannel,
+		initAuctionChannel,
+		joinAuction,
+		leaveAuction,
+		placeBid, toggleFollow
+	} from "../providers/socket/auction"
 	import {stringToNumber} from "../helpers/parser"
 	import lazyLoader from "../helpers/lazy-loader"
 	import eventBus from "../helpers/event-bus"
@@ -23,7 +29,7 @@
 	let currentAuctions = []
 	let auctionsChannels = {}
 	let auctionsLoading = false
-
+	let auctionsCounter = 1
 	let categoriesTask = getAuctionCategories()
 
 	$: parsedQuerystring = parse($querystring)
@@ -31,7 +37,7 @@
 	$: selectedCategory = Number(parsedQuerystring.category || "") || null
 	$: page = stringToNumber(parsedQuerystring.page, 0)
 	$: pageSize = stringToNumber(parsedQuerystring.pageSize, 10)
-	$: auctionItemsTask = getMyAuctions(searchText, selectedCategory, page, pageSize)
+	$: auctionItemsTask = auctionsCounter && getMyAuctions(searchText, selectedCategory, page, pageSize)
 		.then(gcExistingAuctionChannels)
 		.then(initAuctionChannels)
 		.then(storeCurrentAuctions)
@@ -82,15 +88,15 @@
 
 	function initAuctionChannels(newAuctions) {
 		newAuctions
-			.filter(x => !auctionsChannels[x.id])
 			.forEach(auction => {
-				auctionsChannels[auction.id] = {
+				auctionsChannels[auction.id] = auctionsChannels[auction.id] || {
 					channels: {},
 					onBidPlaced: bid => onAuctionBidPlaced(auction, bid)
 				}
 
 				const auctionJoined = auction.user_status === "joined"
-				initAuctionChannel($socket, auction.id, !auctionJoined)
+				!auctionsChannels[auction.id].channels.auction
+				&& initAuctionChannel($socket, auction.id, !auctionJoined)
 					.then(channel => {
 						auctionsChannels[auction.id].channels.auction = channel
 					})
@@ -98,7 +104,8 @@
 
 				// init bidding channel for joined auctions
 				if (auctionJoined) {
-					initAuctionBiddingChannel($socket, auction.id)
+					!auctionsChannels[auction.id].channels.bidding
+					&& initAuctionBiddingChannel($socket, auction.id)
 						.then(channel => {
 							auctionsChannels[auction.id].channels.bidding = channel
 						})
@@ -109,7 +116,7 @@
 	}
 
 	function onAuctionBidPlaced(auction, bid) {
-		const found = (joinedAuctions.find(x => x.id === auction.id) || followedAuctions.find(x => x.id === auction.id))
+		const found = currentAuctions.find(x => x.id === auction.id)
 		found && (found.last_bid = bid)
 	}
 
@@ -123,8 +130,8 @@
 		push(`${$location}?${stringify({...parsedQuerystring, search})}`)
 	}
 
-	function onPlaceBid(auction, amount) {
-		const auctionChannels = auctionsChannels[auction.id]
+	function onPlaceBid({detail: {auction, amount}}) {
+		const auctionChannels = auctionsChannels[auction.id].channels
 		if (!auctionChannels || !auctionChannels.bidding) {
 			console.error("Attempted to place bid for auction that does not have (bidding) channel(s)")
 			return
@@ -140,19 +147,25 @@
 			})
 	}
 
-	function onJoinBidding(auction) {
-		const auctionChannels = auctionsChannels[auction.id]
+	function onJoinBidding({detail: auction}) {
+		const auctionChannels = auctionsChannels[auction.id].channels
 		if (!auctionChannels || !auctionChannels.auction) {
 			console.error("Attempted to place bid for auction that does not have channel")
 			return
 		}
 
+		// const foundIndex = currentAuctions.findIndex(x => x.id === auction.id)
+		const setUserStatus = status => {
+			// currentAuctions = currentAuctions
+			// 	.map((x, i) => i === foundIndex ? {...x, user_status: status} : x)
+			auctionsCounter++
+		}
 		joinAuction(auctionChannels.auction)
 			.then(() => {
 				toastAuctionJoined()
 				console.log("Auction joined")
-				auctionItem.user_status = "joined"
 
+				setUserStatus("joined")
 			})
 			.catch(error => {
 				console.error("Could not join auction", error)
@@ -160,10 +173,97 @@
 			})
 	}
 
-	function onLeaveBidding(auction) {
+	function onLeaveBidding({detail: auction}) {
+		const auctionChannels = auctionsChannels[auction.id].channels
+		if (!auctionChannels || !auctionChannels.auction) {
+			console.error("Attempted to place bid for auction that does not have channel")
+			return
+		}
 
+		// const foundIndex = currentAuctions.findIndex(x => x.id === auction.id)
+		const setUserStatus = status => {
+			// currentAuctions = currentAuctions
+			// 	.map((x, i) => i === foundIndex ? {...x, user_status: status} : x)
+			auctionsCounter++
+		}
+
+		leaveAuction(auctionChannels.auction)
+			.then(result => {
+				switch (result) {
+					case "removed":
+						toastr.success("Auction left!")
+						console.log("Auction left")
+						setUserStatus("nothing")
+						break
+
+					case "bidding_left":
+						toastr.success("Auction is now just followed")
+						console.log("Auction is now just followed")
+						setUserStatus("following")
+						break
+
+					default:
+						toastr.warning("Auction left (unexpected result)")
+						console.log("Auction left but result is not known", result)
+						setUserStatus("nothing")
+						break
+				}
+			})
+			.catch(error => {
+				switch (error) {
+					case "already_bidded":
+						toastr.error("Could not leave auction because you have already placed bid")
+						console.error("Could not leave auction because you have already placed bid")
+						break
+
+					case "not_found":
+						console.error("Could not leave auction because you are not part of it")
+						toastr.error("Could not leave auction because you are not part of it")
+						break
+
+					default:
+						console.error("Could not leave auction", error)
+						toastr.error("Could not leave auction")
+						break
+				}
+			})
 	}
 
+	function onToggleFollow({detail: auction}) {
+		const auctionChannels = auctionsChannels[auction.id].channels
+		if (!auctionChannels || !auctionChannels.auction) {
+			console.error("Attempted to place bid for auction that does not have channel")
+			return
+		}
+
+		// const foundIndex = currentAuctions.findIndex(x => x.id === auction.id)
+		const setUserStatus = status => {
+			// currentAuctions = currentAuctions
+			// 	.map((x, i) => i === foundIndex ? {...x, user_status: status} : x)
+			auctionsCounter++
+		}
+		toggleFollow(auctionChannels.auction)
+			.then(operation => {
+				if (operation === "following") {
+					toastr.success("Auction is now followed")
+					// auctionItem.user_status = operation
+				}
+				else if (operation === "nothing") {
+					toastr.success("Auction is not followed anymore!")
+					// auctionItem.user_status = operation
+				}
+				else {
+					console.warn("Received unknown result while toggle auction follow status")
+					toastr.warning("Received unknown result")
+				}
+
+				setUserStatus("")
+			})
+			.catch(error => {
+				console.error("Could not toggle watch", error)
+				toastr.error("Could not toggle watch for this auction")
+			})
+	}
 </script>
 
 <div class="columns">
@@ -191,6 +291,7 @@
 					on:placeBid={onPlaceBid}
 					on:joinBidding={onJoinBidding}
 					on:leaveBidding={onLeaveBidding}
+					on:toggleFollow={onToggleFollow}
 				/>
 			{/await}
 			{#await joinedAuctionsTask then joinedAuctions}
@@ -200,6 +301,7 @@
 					on:placeBid={onPlaceBid}
 					on:joinBidding={onJoinBidding}
 					on:leaveBidding={onLeaveBidding}
+					on:toggleFollow={onToggleFollow}
 				/>
 			{/await}
 			{#await followedAuctionsTask then followedAuctions}
@@ -209,6 +311,7 @@
 					on:placeBid={onPlaceBid}
 					on:joinBidding={onJoinBidding}
 					on:leaveBidding={onLeaveBidding}
+					on:toggleFollow={onToggleFollow}
 				/>
 			{/await}
 		{:catch error}
