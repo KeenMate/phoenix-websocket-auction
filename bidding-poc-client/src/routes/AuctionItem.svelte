@@ -13,7 +13,7 @@
 		placeBid,
 		toggleFollow
 	} from "../providers/socket/auction"
-	import {getUser} from "../providers/socket/user"
+	// import {getUser} from "../providers/socket/user"
 	import lazyLoader from "../helpers/lazy-loader"
 	import toastr from "../helpers/toastr-helpers"
 	import eventBus from "../helpers/event-bus"
@@ -25,7 +25,7 @@
 	import AuctionItemActiveUsers from "../components/auction-item/AuctionItemActiveUsers.svelte"
 
 	const falsePromise = new Promise(() => {})
-	
+
 	export let params = {}
 
 	// channels
@@ -57,7 +57,7 @@
 		() => {auctionLoading = true},
 		() => {auctionLoading = false}
 	)
-	
+
 	function reassignAuctionItem() {
 		auctionItem = auctionItem
 	}
@@ -328,7 +328,7 @@
 			{/await}
 		</div>
 		<div class="column is-6">
-			{#await lazyAuctionItemLoadedTask}
+			{#await lazyAuctionItemLoadedTask then _}
 				{#if biddingEnded}
 					<Notification>
 						This auction has already ended
