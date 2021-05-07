@@ -5,7 +5,7 @@ defmodule BiddingPocWeb.AuctionChannel do
 
   import BiddingPocWeb.SocketHelpers
 
-  alias BiddingPoc.Database.{AuctionItem, UserInAuction}
+  alias BiddingPoc.Database.{AuctionItem, AuctionBid, UserInAuction}
 
   alias BiddingPoc.{AuctionManager}
   alias BiddingPoc.AuctionPublisher
@@ -14,6 +14,7 @@ defmodule BiddingPocWeb.AuctionChannel do
   @impl true
   def join("auction:" <> auction_id, payload, socket) do
     include_bid_placed = Map.get(payload, "include_bid_placed", false)
+    include_data = Map.get(payload, "include_data", false)
 
     auction_id
     |> Integer.parse()
@@ -32,6 +33,7 @@ defmodule BiddingPocWeb.AuctionChannel do
             socket
             |> put_auction_id(parsed_auction_id)
             |> put_include_bid_placed(include_bid_placed)
+            |> put_include_data(include_data)
             |> put_user_status(:nothing)
           }
         else
@@ -114,14 +116,14 @@ defmodule BiddingPocWeb.AuctionChannel do
     {:noreply, socket}
   end
 
-  def handle_info(:bidding_started, socket) do
-    push(socket, "bidding_started", %{})
+  def handle_info({:bidding_started, _auction}, socket) do
+    # push(socket, "bidding_started", %{})
 
     {:noreply, socket}
   end
 
   def handle_info(:bidding_ended, socket) do
-    push(socket, "bidding_ended", %{})
+    # push(socket, "bidding_ended", %{})
 
     {:noreply, socket}
   end
@@ -139,7 +141,9 @@ defmodule BiddingPocWeb.AuctionChannel do
           put_user_status(socket, :nothing)
       end
 
-    push_auction_item(new_socket)
+    if data_included?(new_socket) do
+      push_auction_item(new_socket)
+    end
 
     UserStoreAgent.set_current_auction(user_id, auction_id)
 
@@ -177,6 +181,7 @@ defmodule BiddingPocWeb.AuctionChannel do
     socket
     |> get_auction_id()
     |> AuctionItem.with_data()
+    |> insert_last_bid()
     |> case do
       {:ok, %AuctionItem{} = auction_with_data} ->
         updated_auction_with_data =
@@ -195,17 +200,34 @@ defmodule BiddingPocWeb.AuctionChannel do
     socket
   end
 
-  # defp category_followed_by_user?(user_id, auction_item) do
-  #   auction_item
-  #   |> Map.get(:category_id)
-  #   |> UserFollowedCategory.category_followed_by_user?(user_id)
-  # end
+  defp insert_last_bid({:ok, %AuctionItem{} = auction}) do
+    case AuctionBid.get_auction_highest_bid(auction.id) do
+      [] ->
+        {:ok, auction}
+
+      [%AuctionBid{} = bid] ->
+        {
+          :ok,
+          Map.put(auction, :last_bid, bid)
+        }
+    end
+  end
+
+  defp insert_last_bid({:error, _} = error), do: error
 
   defp bid_placed_included?(socket) do
     Map.get(socket.assigns, :include_bid_placed, false)
   end
 
+  defp data_included?(socket) do
+    Map.get(socket.assigns, :include_data, false)
+  end
+
   defp put_include_bid_placed(socket, include_bid_placed) do
     assign(socket, :include_bid_placed, include_bid_placed)
+  end
+
+  defp put_include_data(socket, include_data) do
+    assign(socket, :include_data, include_data)
   end
 end

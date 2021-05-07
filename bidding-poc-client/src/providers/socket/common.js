@@ -16,12 +16,10 @@ export function createSocket(token) {
 		}
 	})
 
-	socket.onClose(reason => {
-		console.error("Socket closed: ", reason)
+	socket.onClose(() => {
 		socketConnected.set(false)
 	})
 	socket.onOpen(() => {
-		console.log("Socket connected")
 		socketConnected.set(true)
 	})
 

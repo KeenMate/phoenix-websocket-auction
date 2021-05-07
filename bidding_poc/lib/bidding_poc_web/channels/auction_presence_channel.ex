@@ -118,7 +118,7 @@ defmodule BiddingPocWeb.AuctionPresenceChannel do
   end
 
   defp setup_subscriptions(socket) do
-    AuctionPublisher.subscribe_auction_user_presence(get_auction_id(socket), get_user_id(socket))
+    AuctionPublisher.subscribe_auction_user_presence_topic(get_auction_id(socket), get_user_id(socket))
     AuctionPublisher.subscribe_auction_presence(get_auction_id(socket))
   end
 

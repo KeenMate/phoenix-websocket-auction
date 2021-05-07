@@ -34,7 +34,7 @@
 	{/if}
 	<div class="columns is-multiline">
 		{#each auctions as auction}
-			<div class="column is-3">
+			<div class="column is-4">
 				<!-- todo: Add event listeners -->
 				<AuctionQuickCard
 					{auction}

@@ -26,6 +26,9 @@ export function initUserChannel(socket, userId) {
 
 	listenPlaceBidSuccess(channel)
 	listenPlaceBidError(channel)
+	listenBidOverbidded(channel)
+	listenBiddingStarted(channel)
+	listenBiddingEnded(channel)
 
 	return joinChannel(channel)
 }
@@ -62,6 +65,24 @@ export async function deleteUser(userId) {
 	const channel = await usersChannelAwaiter
 
 	return pushSocketMessage(channel, "delete_user", {user_id: userId})
+}
+
+function listenBidOverbidded(channel) {
+	channel.on("bid_overbidded", bid => {
+		eventBus.emit("bid_overbidded:" + bid.auction_id, null, bid)
+	})
+}
+
+function listenBiddingStarted(channel) {
+	channel.on("bidding_started", auction => {
+		eventBus.emit("bidding_started:" + auction.id, null, auction)
+	})
+}
+
+function listenBiddingEnded(channel) {
+	channel.on("bidding_ended", auction => {
+		eventBus.emit("bidding_ended:" + auction.id, null, auction)
+	})
 }
 
 function listenPlaceBidSuccess(channel) {

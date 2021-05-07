@@ -29,7 +29,6 @@ defmodule BiddingPoc.Application do
       pubsub_child_spec(BiddingPoc.AuctionItemPubSub),
       pubsub_child_spec(BiddingPoc.AuctionUserStatusPubSub),
       pubsub_child_spec(BiddingPoc.UserPubSub),
-      # {Phoenix.PubSub, name: BiddingPoc.UserPubSub},
       BiddingPocWeb.Presence,
       {BiddingPoc.StartAuctionServersTask, []},
       # Start the Endpoint (http/https)

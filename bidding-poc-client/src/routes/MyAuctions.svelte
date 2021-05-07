@@ -26,7 +26,7 @@
 	import AuctionItemsFilters from "../components/auctions/AuctionItemsFilters.svelte"
 	import MyAuctionsList from "../components/auctions/MyAuctionsList.svelte"
 
-	let currentAuctions = []
+	let auctions = []
 	let auctionsChannels = {}
 	let auctionsLoading = false
 	let auctionsCounter = 1
@@ -38,16 +38,16 @@
 	$: page = stringToNumber(parsedQuerystring.page, 0)
 	$: pageSize = stringToNumber(parsedQuerystring.pageSize, 10)
 	$: auctionItemsTask = auctionsCounter && getMyAuctions(searchText, selectedCategory, page, pageSize)
-		.then(gcExistingAuctionChannels)
-		.then(initAuctionChannels)
+		.then(gcExistingAuctionsResources)
+		.then(initAuctionsResources)
 		.then(storeCurrentAuctions)
 		.catch(error => {
 			console.error("Could not load my auctions")
 			throw error
 		})
-	$: ownerAuctionsTask = auctionItemsTask && auctionItemsTask.then(filterOwnerAuctions)
-	$: joinedAuctionsTask = auctionItemsTask && auctionItemsTask.then(filterJoinedAuctions)
-	$: followedAuctionsTask = auctionItemsTask && auctionItemsTask.then(filterFollowedAuctions)
+	$: ownerAuctions = auctions && filterOwnerAuctions(auctions)
+	$: joinedAuctions = auctions && filterJoinedAuctions(auctions)
+	$: followedAuctions = auctions && filterFollowedAuctions(auctions)
 	$: lazyAuctionsTask = auctionItemsTask && lazyLoader(
 		auctionItemsTask,
 		() => auctionsLoading = true,
@@ -55,7 +55,7 @@
 	)
 
 	function storeCurrentAuctions(newAuctions) {
-		currentAuctions = newAuctions
+		auctions = newAuctions
 
 		return newAuctions
 	}
@@ -69,16 +69,19 @@
 	}
 
 	function filterFollowedAuctions(auctions) {
-		return auctions.filter(auction => auction.user_status === "following")
+		return auctions.filter(auction => auction.user_status === "following" && auction.user_id !== $userStore.id)
 	}
 
-	function gcExistingAuctionChannels(newAuctions) {
-		currentAuctions
+	function gcExistingAuctionsResources(newAuctions) {
+		console.log("New auctions: ", newAuctions)
+
+		auctions
 			.filter(auction => !newAuctions.find(x => x.id === auction.id) && auctionsChannels[auction.id])
 			.forEach(auction => {
 				Object.values(auctionsChannels[auction.id].channels)
 					.forEach(x => x.leave())
-				eventBus.off("bid_placed:" + auction.id, auctionsChannels[auction.id].onBidPlaced)
+
+				auctionEventBusListeners(auction)
 
 				delete auctionsChannels[auction.id]
 			})
@@ -86,12 +89,14 @@
 		return newAuctions
 	}
 
-	function initAuctionChannels(newAuctions) {
+	function initAuctionsResources(newAuctions) {
 		newAuctions
 			.forEach(auction => {
 				auctionsChannels[auction.id] = auctionsChannels[auction.id] || {
 					channels: {},
-					onBidPlaced: bid => onAuctionBidPlaced(auction, bid)
+					onBidPlaced: bid => onAuctionBidPlaced(auction, bid),
+					onBiddingStarted: reassignAuctions,
+					onBiddingEnded: reassignAuctions,
 				}
 
 				const auctionJoined = auction.user_status === "joined"
@@ -100,7 +105,7 @@
 					.then(channel => {
 						auctionsChannels[auction.id].channels.auction = channel
 					})
-				eventBus.on("bid_placed:" + auction.id, auctionsChannels[auction.id].onBidPlaced)
+				auctionEventBusListeners(auction, true)
 
 				// init bidding channel for joined auctions
 				if (auctionJoined) {
@@ -115,9 +120,27 @@
 		return newAuctions
 	}
 
+	function auctionEventBusListeners(auction, add = false) {
+		const fn = add && "on" || "detach"
+
+		const action = (e, callback) =>
+			eventBus[fn](e + ":" + auction.id, callback)
+
+		action("bid_placed", auctionsChannels[auction.id].onBidPlaced)
+		action("bidding_started", auctionsChannels[auction.id].onBiddingStarted)
+		action("bidding_ended", auctionsChannels[auction.id].onBiddingEnded)
+	}
+
+	function reassignAuctions() {
+		auctions = auctions
+	}
+
 	function onAuctionBidPlaced(auction, bid) {
-		const found = currentAuctions.find(x => x.id === auction.id)
-		found && (found.last_bid = bid)
+		auctions = auctions.map(
+			x => x.id === auction.id
+				? {...x, last_bid: bid}
+				: x
+		)
 	}
 
 	function onSelectCategory({detail: category}) {
@@ -247,12 +270,10 @@
 				if (operation === "following") {
 					toastr.success("Auction is now followed")
 					// auctionItem.user_status = operation
-				}
-				else if (operation === "nothing") {
+				} else if (operation === "nothing") {
 					toastr.success("Auction is not followed anymore!")
 					// auctionItem.user_status = operation
-				}
-				else {
+				} else {
 					console.warn("Received unknown result while toggle auction follow status")
 					toastr.warning("Received unknown result")
 				}
@@ -284,36 +305,30 @@
 				<Notification>Loading auction items</Notification>
 			{/if}
 		{:then _}
-			{#await ownerAuctionsTask then ownerAuctions}
-				<MyAuctionsList
-					title="Your auctions"
-					auctions={ownerAuctions}
-					on:placeBid={onPlaceBid}
-					on:joinBidding={onJoinBidding}
-					on:leaveBidding={onLeaveBidding}
-					on:toggleFollow={onToggleFollow}
-				/>
-			{/await}
-			{#await joinedAuctionsTask then joinedAuctions}
-				<MyAuctionsList
-					title="Joined auctions"
-					auctions={joinedAuctions}
-					on:placeBid={onPlaceBid}
-					on:joinBidding={onJoinBidding}
-					on:leaveBidding={onLeaveBidding}
-					on:toggleFollow={onToggleFollow}
-				/>
-			{/await}
-			{#await followedAuctionsTask then followedAuctions}
-				<MyAuctionsList
-					title="Followed auctions"
-					auctions={followedAuctions}
-					on:placeBid={onPlaceBid}
-					on:joinBidding={onJoinBidding}
-					on:leaveBidding={onLeaveBidding}
-					on:toggleFollow={onToggleFollow}
-				/>
-			{/await}
+			<MyAuctionsList
+				title="Your auctions"
+				auctions={ownerAuctions}
+				on:placeBid={onPlaceBid}
+				on:joinBidding={onJoinBidding}
+				on:leaveBidding={onLeaveBidding}
+				on:toggleFollow={onToggleFollow}
+			/>
+			<MyAuctionsList
+				title="Joined auctions"
+				auctions={joinedAuctions}
+				on:placeBid={onPlaceBid}
+				on:joinBidding={onJoinBidding}
+				on:leaveBidding={onLeaveBidding}
+				on:toggleFollow={onToggleFollow}
+			/>
+			<MyAuctionsList
+				title="Followed auctions"
+				auctions={followedAuctions}
+				on:placeBid={onPlaceBid}
+				on:joinBidding={onJoinBidding}
+				on:leaveBidding={onLeaveBidding}
+				on:toggleFollow={onToggleFollow}
+			/>
 		{:catch error}
 			{@debug error}
 			<h4 class="is-text-4">Could not load auction items</h4>

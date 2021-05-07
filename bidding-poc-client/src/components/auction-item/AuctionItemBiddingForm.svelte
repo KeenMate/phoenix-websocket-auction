@@ -23,7 +23,6 @@
 	$: onFocusChanged(amountFocused)
 
 	$: isAuthor = $userStore && $userStore.id === ownerId
-	$: console.log("author:", isAuthor)
 	$: isAuthorOfLastBid = (lastBid && lastBid.user_id) === ($userStore && $userStore.id || "not_matching")
 
 	function onLastBidChanged(bid) {

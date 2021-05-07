@@ -5,6 +5,7 @@
 	import {secondeer} from "../../stores/other"
 	import {formatDuration} from "../../helpers/date-duration"
 	import AuctionItemBiddingForm from "./AuctionItemBiddingForm.svelte"
+	import Notification from "../ui/Notification.svelte"
 
 	const dispatch = createEventDispatcher()
 
@@ -15,6 +16,8 @@
 	let secondeerSubscription
 
 	$: formattedBiddingEnd = auction && m(auction.bidding_end).toString()
+	$: biddingEnded = auction && m(auction.bidding_end).isBefore()
+	$: biddingStarted = auction && m(auction.bidding_start).isBefore()
 
 	function destroySubscription() {
 		secondeerSubscription && secondeerSubscription()
@@ -33,7 +36,7 @@
 			} else if (biddingEndDiff > 0) {
 				remainingTime = formatDuration(biddingEndDiff)
 				auctionStatus = "not_ended"
-			}	else {
+			} else {
 				auctionStatus = "ended"
 				destroySubscription()
 			}
@@ -56,7 +59,7 @@
 						</a>
 					</div>
 					<div class="column is-narrow">
-						{#if auction && auction.last_bid}
+						{#if auction && auction.last_bid && auction.last_bid.amount}
 							<span
 								class="tag is-light is-primary is-rounded ml-1"
 								title="The last bid for this auction"
@@ -85,11 +88,16 @@
 				{#if auction.category}
 					<span class="tag is-light is-info is-rounded mb-2">{auction.category}</span>
 				{/if}
-				{#if ["joined", "following"].includes(auction.user_status)}
+				{#if !biddingStarted}
+					<Notification>Bidding has not started yet</Notification>
+				{:else if biddingEnded}
+					<Notification>Bidding has ended</Notification>
+				{:else if ["joined", "following"].includes(auction.user_status)}
 					<AuctionItemBiddingForm
 						auctionId={auction.id}
 						userStatus={auction.user_status}
 						ownerId={auction.user_id}
+						lastBid={auction.last_bid}
 						minimumBidStep={auction.minimum_bid_step}
 						compact
 						on:placeBid

@@ -32,12 +32,12 @@ defmodule BiddingPoc.AuctionPublisher do
     )
   end
 
-  @spec broadcast_bidding_started(pos_integer()) :: :ok | {:error, any()}
-  def broadcast_bidding_started(auction_id) do
+  @spec broadcast_bidding_started(AuctionItem.t()) :: :ok | {:error, any()}
+  def broadcast_bidding_started(auction) do
     Phoenix.PubSub.broadcast(
       BiddingPoc.AuctionItemPubSub,
-      auction_topic(auction_id),
-      :bidding_started
+      auction_topic(auction.id),
+      {:bidding_started, auction}
     )
   end
 
@@ -101,6 +101,10 @@ defmodule BiddingPoc.AuctionPublisher do
     Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auction_topic(auction_id))
   end
 
+  def unsubscribe_auction_topic(auction_id) do
+    Phoenix.PubSub.unsubscribe(BiddingPoc.AuctionItemPubSub, auction_topic(auction_id))
+  end
+
   def subscribe_auction_bidding_topic(auction_id) do
     Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auction_bidding_topic(auction_id))
   end
@@ -109,7 +113,7 @@ defmodule BiddingPoc.AuctionPublisher do
     Phoenix.PubSub.subscribe(BiddingPoc.AuctionItemPubSub, auctions_topic())
   end
 
-  def subscribe_auction_user_presence(auction_id, user_id) do
+  def subscribe_auction_user_presence_topic(auction_id, user_id) do
     Phoenix.PubSub.subscribe(
       BiddingPoc.AuctionUserStatusPubSub,
       user_auction_presence_topic(auction_id, user_id)

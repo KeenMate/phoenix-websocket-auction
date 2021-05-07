@@ -5,7 +5,7 @@ import eventBus from "../../helpers/event-bus"
 
 export function initAuctionChannels(socket, auctionId) {
 	return Promise.all([
-		initAuctionChannel(socket, auctionId),
+		initAuctionChannel(socket, auctionId, false, true),
 		initAuctionBiddingChannel(socket, auctionId),
 		initAuctionPresenceChannel(socket, auctionId)
 	]).then(([auction, bidding, presence]) => ({
@@ -15,8 +15,14 @@ export function initAuctionChannels(socket, auctionId) {
 	}))
 }
 
-export function initAuctionChannel(socket, auctionId, includeBidPlaced = false) {
-	const channel = socket.channel(`auction:${auctionId}`, {include_bid_placed: includeBidPlaced})
+export function initAuctionChannel(socket, auctionId, includeBidPlaced = false, includeData = false) {
+	const channel = socket.channel(
+		`auction:${auctionId}`,
+		{
+			include_bid_placed: includeBidPlaced,
+			include_data: includeData
+		}
+	)
 
 	listenAuctionItemData(channel, auctionId)
 	listenAuctionDetailUpdated(channel, auctionId)
@@ -159,6 +165,7 @@ function listenAuctionDetailUpdated(channel, auctionId) {
 
 function listenAuctionItemData(channel, auctionId) {
 	channel.on("auction_data", auction => {
+		console.log("Received auction data: ", auction)
 		eventBus.emit("auction_data:" + auctionId, null, auction)
 	})
 }

@@ -40,11 +40,13 @@ defmodule BiddingPoc.AuctionItemServer do
 
   @impl true
   def handle_cast({:place_bid, user_id, amount}, %{auction_id: auction_id} = state) do
+    last_bids = AuctionBid.get_auction_highest_bid(auction_id)
+
     new_state =
       AuctionItem.place_bid(auction_id, user_id, amount)
       |> case do
         {:ok, bid} ->
-          after_bid_placed(state, user_id, bid)
+          after_bid_placed(state, user_id, bid, last_bids)
 
         {:error, reason} = error
         when reason in [
@@ -67,7 +69,7 @@ defmodule BiddingPoc.AuctionItemServer do
     AuctionBid.new_bid(auction.id, :initial_bid, auction.start_price)
     |> AuctionBid.write_bid()
 
-    AuctionPublisher.broadcast_bidding_started(auction.id)
+    AuctionPublisher.broadcast_bidding_started(auction)
 
     {:noreply, state}
   end
@@ -103,8 +105,23 @@ defmodule BiddingPoc.AuctionItemServer do
     end
   end
 
-  defp after_bid_placed(state, user_id, auction_bid) do
+  defp after_bid_placed(state, user_id, auction_bid, old_last_bids) do
     send_user_bid_placed(user_id, auction_bid)
+
+    unless old_last_bids == [] do
+      [last_bid] = old_last_bids
+
+      last_bid_with_auction_title =
+        case AuctionItem.get_auction_title(last_bid.auction_id) do
+          {:error, :not_found} ->
+            last_bid
+
+          {:ok, auction_title} ->
+            Map.put(last_bid, :auction_title, auction_title)
+        end
+
+        UserPublisher.send_bid_overbidded(last_bid.user_id, last_bid_with_auction_title)
+      end
 
     [enhanced_bid] = AuctionBid.with_data([auction_bid])
 

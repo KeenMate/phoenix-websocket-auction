@@ -10,6 +10,8 @@
 	import {getCurrentUser} from "./providers/user"
 	import {createSocket, socket, socketConnected} from "./providers/socket/common"
 	import Navigation from "./components/navigatioin/Navigation.svelte"
+	import {onDestroy, onMount} from "svelte"
+	import eventBus from "./helpers/event-bus"
 
 	$: $authTokenStore && onAuthToken($authTokenStore)
 
@@ -71,6 +73,35 @@
 			toastr.error("Could not initiate real-time connection to the server")
 		}
 	}
+
+	function onBiddingStarted(auction) {
+
+	}
+	function onBiddingEnded(auction) {
+
+	}
+	function onBidOverbidded(auction) {
+
+	}
+
+	function eventBusListeners(add = false) {
+		const fn = add && "on" || "detach"
+
+		const action = (e, callback) =>
+			eventBus[fn](e  + ":*", callback)
+
+		action("bidding_started", onBiddingStarted)
+		action("bidding_ended", onBiddingEnded)
+		action("bid_overbidded", onBidOverbidded)
+	}
+
+	onMount(() => {
+		eventBusListeners(true)
+	})
+
+	onDestroy(() => {
+		eventBusListeners()
+	})
 </script>
 
 <Navigation user={$userStore} />

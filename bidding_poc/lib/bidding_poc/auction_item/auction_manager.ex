@@ -5,7 +5,7 @@ defmodule BiddingPoc.AuctionManager do
   alias BiddingPoc.DateHelpers
   alias BiddingPoc.AuctionItemServer
   alias BiddingPoc.AuctionItemSupervisor
-  alias BiddingPoc.AuctionPublisher
+  alias BiddingPoc.{AuctionPublisher, UserPublisher}
 
   @spec create_auction(map(), pos_integer()) ::
           {:ok, AuctionItem.t()} | {:error, :id_filled | :title_used}
@@ -136,13 +136,15 @@ defmodule BiddingPoc.AuctionManager do
     UserInAuction.remove_user_from_auction(auction_id, user_id)
     |> case do
       {:ok, status} = result ->
-        case status do
-          :bidding_left ->
-            broadcast_auction_user_changed(auction_id, user_id, :following)
+        user_status =
+          case status do
+            :bidding_left ->
+              :following
 
-          :removed ->
-            broadcast_auction_user_changed(auction_id, user_id, :not_following)
-        end
+            :removed ->
+              :not_following
+          end
+        broadcast_auction_user_changed(auction_id, user_id, user_status)
 
         result
 
@@ -234,13 +236,16 @@ defmodule BiddingPoc.AuctionManager do
         case User.get_by_id(user_id) do
           {:ok, found} ->
             user_with_status = put_user_status_for_user(found, auction_id)
+
             AuctionPublisher.broadcast_new_auction_user(auction_id, Map.from_struct(user_with_status))
+            UserPublisher.send_auction_relation_changed(user_id, auction_id, :added)
           {:error, :not_found} ->
             Logger.error("Could not find user based on channel's user_id: #{inspect(user_id)}")
         end
 
       :not_following ->
         AuctionPublisher.broadcast_auction_user_left(auction_id, user_id)
+        UserPublisher.send_auction_relation_changed(user_id, auction_id, :removed)
     end
   end
 

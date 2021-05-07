@@ -353,6 +353,7 @@
 				{:else if biddingChannel}
 					<AuctionItemBiddingForm
 						auctionId={auctionItem.id}
+						ownerId={auctionItem.user_id}
 						userStatus={auctionItem.user_status}
 						minimumBidStep={auctionItem.minimum_bid_step}
 						{lastBid}

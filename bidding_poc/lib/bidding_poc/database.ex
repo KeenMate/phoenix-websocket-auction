@@ -558,34 +558,10 @@ defdatabase BiddingPoc.Database do
         |> Stream.drop(skip)
         |> Stream.take(take)
         |> Stream.map(&with_category_and_user_status(&1, user_id))
+        |> Stream.map(&with_last_bid/1)
         |> Enum.to_list()
       end
     end
-
-    # @spec get_oldest_auctions(binary() | nil, pos_integer() | nil, pos_integer() | nil, non_neg_integer(), pos_integer()) :: [t()]
-    # def get_oldest_auctions(search \\ nil, user_id \\ nil, category_id \\ nil, skip \\ 0, take \\ 10) do
-    #   now = DateTime.now!(Common.timezone)
-    #   Amnesia.transaction do
-    #     get_auctions(
-    #       fn auction ->
-    #         if(search, do: auction.title =~ ~r/#{search}/i, else: true)
-    #         && if(category_id, do: auction.category_id == category_id, else: true)
-    #         && if(user_id, do: auction.user_id == user_id, else: true)
-    #       end,
-    #       fn l, r ->
-    #         l_bidding_end = elem(l, 8)
-    #         r_bidding_end = elem(r, 8)
-    #         if l_bidding_end && r_bidding_end do
-    #           DateTime.diff(now, l_bidding_end) < DateTime.diff(now, r_bidding_end)
-    #         else
-    #           true
-    #         end
-    #       end)
-    #     |> Stream.drop(skip)
-    #     |> Stream.take(take)
-    #     |> Enum.to_list()
-    #   end
-    # end
 
     @spec get_auctions((t() -> boolean()) | nil, (t(), t() -> boolean()) | nil) :: Enumerable.t(t())
     @doc """
@@ -622,6 +598,16 @@ defdatabase BiddingPoc.Database do
       end
     end
 
+    @spec get_auction_title(pos_integer()) :: {:ok, binary()} | {:error, :not_found}
+    def get_auction_title(auction_id) when is_number(auction_id) do
+      Amnesia.transaction do
+        case read(auction_id) do
+          nil -> {:error, :not_found}
+          %{title: title} -> {:ok, title}
+        end
+      end
+    end
+
     @spec with_category_and_user_status(t(), pos_integer()) :: t()
     def with_category_and_user_status(auction, user_id) do
       Amnesia.transaction do
@@ -648,6 +634,19 @@ defdatabase BiddingPoc.Database do
         auction
         |> Map.put(:category, category)
         |> Map.put(:user_status, user_status)
+      end
+    end
+
+    def with_last_bid(auction) do
+      Amnesia.transaction do
+        AuctionBid.get_auction_highest_bid(auction.id)
+        |> case do
+          [] ->
+            auction
+
+          [bid] ->
+            Map.put(auction, :last_bid, bid)
+        end
       end
     end
 
