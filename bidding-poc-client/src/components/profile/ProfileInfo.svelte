@@ -6,7 +6,8 @@
 
 <Card>
 	{#if user}
-		<b>Username: </b> {user.display_name} <br>
+		<b>Display name: </b> {user.display_name} <br>
+		<b>Username</b> {user.username} <br>
 		<b>Is admin: </b> {user.is_admin && "Yes" || "No"} <br>
 	{/if}
 </Card>
