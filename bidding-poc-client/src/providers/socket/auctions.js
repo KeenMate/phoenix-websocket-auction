@@ -20,8 +20,8 @@ export function initAuctionsChannel(socket) {
 
 	listenItemAdded(channel)
 	listenItemRemoved(channel)
-	listenAuctionStarted(channel)
-	listenAuctionEnded(channel)
+	// listenAuctionStarted(channel)
+	// listenAuctionEnded(channel)
 
 	return joinChannel(channel)
 }

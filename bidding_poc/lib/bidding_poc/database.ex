@@ -536,7 +536,6 @@ defdatabase BiddingPoc.Database do
           |> UserInAuction.get_user_auctions()
           |> Enum.map(& &1.auction_id)
 
-        now = DateTime.now!(Common.timezone)
         get_auctions(
           fn auction ->
             (
@@ -545,15 +544,6 @@ defdatabase BiddingPoc.Database do
             )
             && if(category_id, do: auction.category_id == category_id, else: true)
             && if(search, do: auction.title =~ ~r/#{search}/i, else: true)
-          end,
-          fn l, r ->
-            l_bidding_end = elem(l, 8)
-            r_bidding_end = elem(r, 8)
-            if l_bidding_end && r_bidding_end do
-              DateTime.diff(now, l_bidding_end) < DateTime.diff(now, r_bidding_end)
-            else
-              true
-            end
           end)
         |> Stream.drop(skip)
         |> Stream.take(take)
@@ -569,12 +559,13 @@ defdatabase BiddingPoc.Database do
     """
     def get_auctions(filterer \\ nil, sorter \\ nil) do
       Amnesia.transaction do
+        now = DateTime.now!(Common.timezone)
         foldl([], &[&1 | &2])
         |> Enum.sort(sorter || fn l, r ->
-          l_inserted_at = elem(l, 9)
-          r_inserted_at = elem(r, 9)
-          if l_inserted_at && r_inserted_at do
-            DateTime.compare(l_inserted_at, r_inserted_at) in [:gt, :eq]
+          l_bidding_end = elem(l, 8)
+          r_bidding_end = elem(r, 8)
+          if l_bidding_end && r_bidding_end do
+            DateTime.diff(now, l_bidding_end) < DateTime.diff(now, r_bidding_end)
           else
             true
           end

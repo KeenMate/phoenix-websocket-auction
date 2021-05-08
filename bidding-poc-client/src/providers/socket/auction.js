@@ -26,8 +26,8 @@ export function initAuctionChannel(socket, auctionId, includeBidPlaced = false, 
 
 	listenAuctionItemData(channel, auctionId)
 	listenAuctionDetailUpdated(channel, auctionId)
-	listenBiddingStarted(channel, auctionId)
-	listenBiddingEnded(channel, auctionId)
+	// listenBiddingStarted(channel, auctionId)
+	// listenBiddingEnded(channel, auctionId)
 	listenBidAveraged(channel, auctionId)
 	includeBidPlaced && listenBidPlaced(channel, auctionId)
 

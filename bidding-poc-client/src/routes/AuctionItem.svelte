@@ -64,7 +64,10 @@
 	)
 
 	function reassignAuctionItem() {
-		auctionItem = auctionItem
+		// its because the WS messages are so fast.. :)
+		setTimeout(() => {
+			auctionItem = auctionItem
+		}, 10)
 	}
 
 	function initChannels(theSocket, auctionId) {

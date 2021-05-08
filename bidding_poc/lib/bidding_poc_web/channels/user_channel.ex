@@ -1,6 +1,8 @@
 defmodule BiddingPocWeb.UserChannel do
   use BiddingPocWeb, :channel
 
+  require Logger
+
   import BiddingPocWeb.SocketHelpers
 
   alias BiddingPoc.{UserPublisher, AuctionPublisher}
@@ -48,6 +50,8 @@ defmodule BiddingPocWeb.UserChannel do
   end
 
   def handle_info({:auction_relation_changed, auction_id, change}, socket) do
+    Logger.debug("Auction relation changed")
+
     new_socket =
       case change do
         :added ->
@@ -91,7 +95,6 @@ defmodule BiddingPocWeb.UserChannel do
         relations
       end
 
-
     assign(socket, :auction_relations, new_relations)
   end
 
@@ -101,7 +104,7 @@ defmodule BiddingPocWeb.UserChannel do
     filtered =
       socket
       |> get_auction_relations()
-      |> Enum.filter(& &1.id != auction_id)
+      |> Enum.filter(&(&1.id != auction_id))
 
     assign(socket, :auction_relations, filtered)
   end

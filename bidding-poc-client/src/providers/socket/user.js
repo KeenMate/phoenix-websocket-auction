@@ -75,6 +75,7 @@ function listenBidOverbidded(channel) {
 
 function listenBiddingStarted(channel) {
 	channel.on("bidding_started", auction => {
+		console.log("bidding started", auction)
 		eventBus.emit("bidding_started:" + auction.id, null, auction)
 	})
 }

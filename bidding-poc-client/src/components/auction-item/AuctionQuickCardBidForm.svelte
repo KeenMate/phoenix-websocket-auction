@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 	import {createEventDispatcher, onDestroy, onMount} from "svelte"
 	import toastr from "../../helpers/toastr-helpers"
 	import eventBus from "../../helpers/event-bus"
@@ -13,7 +13,6 @@
 	export let minimumBidStep = 0
 	export let ownerId = null
 	export let lastBid = null
-	export let compact = false
 
 	let currentBid = 0
 	let amountFocused = false
@@ -126,7 +125,6 @@
 				{#if userStatus === "joined"}
 					<NumberInput
 						value={currentBid}
-						label={!compact && "Your bid" || ""}
 						placeholder="Your bid"
 						required
 						isHorizontal
@@ -146,25 +144,6 @@
 					>
 						Place bid
 					</TheButton>
-					<!--{#if !compact}-->
-					<TheButton
-						isWarning
-						disabled={isAuthorOfLastBid}
-						title={isAuthorOfLastBid && "You are the author of last bid - cannot leave auction now" || null}
-						on:click={onLeaveBidding}
-					>
-						Leave bidding
-					</TheButton>
-					<!--{/if}-->
-				{:else}
-					<!--{#if !compact}-->
-					<TheButton
-						isPrimary
-						on:click={onJoinBidding}
-					>
-						Join bidding
-					</TheButton>
-					<!--{/if}-->
 				{/if}
 			</div>
 		</div>

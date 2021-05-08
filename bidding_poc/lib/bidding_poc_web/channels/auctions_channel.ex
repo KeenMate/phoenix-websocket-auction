@@ -5,7 +5,12 @@ defmodule BiddingPocWeb.AuctionsChannel do
 
   import BiddingPocWeb.SocketHelpers
 
-  alias BiddingPoc.Database.{AuctionItem, AuctionItemCategory, UserFollowedCategory, UserInAuction}
+  alias BiddingPoc.Database.{
+    AuctionItem,
+    AuctionItemCategory,
+    UserFollowedCategory,
+    UserInAuction
+  }
 
   alias BiddingPoc.{AuctionManager, UserManager}
   alias BiddingPoc.AuctionPublisher
@@ -27,11 +32,7 @@ defmodule BiddingPocWeb.AuctionsChannel do
     auction_item_params
     |> AuctionManager.create_auction(user_id)
     |> case do
-      {:ok, auction_item} = result ->
-        # broadcast_from(socket, "auction_added", auction_item)
-
-        UserInAuction.add_user_to_auction(auction_item.id, user_id, false)
-
+      {:ok, %AuctionItem{}} = result ->
         {:reply, result, socket}
 
       {:error, _} = error ->
@@ -55,7 +56,11 @@ defmodule BiddingPocWeb.AuctionsChannel do
     }
   end
 
-  def handle_in("get_user_auctions", %{"user_id" => user_id, "category_id" => category_id}, socket) do
+  def handle_in(
+        "get_user_auctions",
+        %{"user_id" => user_id, "category_id" => category_id},
+        socket
+      ) do
     {
       :reply,
       {

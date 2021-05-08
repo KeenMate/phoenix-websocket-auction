@@ -4,34 +4,50 @@
 const timeUnits = [
 	{
 		unit: "day",
+		unitSuffix: "d",
 		conversion: 86400000,
 		rightDelimiter: " "
 	},
 	{
 		unit: "hour",
+		unitSuffix: "h",
 		conversion: 3600000,
 		rightDelimiter: ":"
 	},
 	{
 		unit: "minute",
+		unitSuffix: "m",
 		conversion: 60000,
 		rightDelimiter: ":"
 	},
 	{
 		unit: "second",
+		unitSuffix: "s",
 		conversion: 1000,
 		rightDelimiter: "."
 	}
 ]
 
-export function formatDuration(milliseconds) {
+export function toCountdown(milliseconds) {
+	const absMilliseconds = milliseconds < 0 && Math.abs(milliseconds) || milliseconds
+	const parsed = parseDuration(absMilliseconds)
+	
+	return timeUnits
+		.map(unit => {
+			if (!parsed[unit.unit])
+				return ""
+			return parsed[unit.unit] + unit.unitSuffix
+		})
+}
+
+export function formatCounterDuration(milliseconds) {
 	const absMilliseconds = milliseconds < 0 && Math.abs(milliseconds) || milliseconds
 	const parsed = parseDuration(absMilliseconds)
 
-	return (milliseconds < 0 && "-" || "") + formatParsed(parsed)
+	return (milliseconds < 0 && "-" || "") + formatCounterParsed(parsed)
 }
 
-function formatParsed(parsed) {
+function formatCounterParsed(parsed) {
 	return timeUnits
 		.reduce((acc, unit, i, units) => {
 			const unitValue = parsed[unit.unit]

@@ -15,6 +15,8 @@ defmodule BiddingPoc.AuctionManager do
     |> AuctionItem.create_auction(user_id)
     |> case do
       {:ok, new_auction} = result ->
+        toggle_follow_auction(new_auction.id, user_id)
+
         start_auction_item_server(new_auction.id, true)
         result
 
@@ -94,7 +96,8 @@ defmodule BiddingPoc.AuctionManager do
     end
   end
 
-  @spec toggle_follow_auction(pos_integer(), pos_integer()) :: Task.t()
+  @spec toggle_follow_auction(pos_integer(), pos_integer()) ::
+          {:ok, :following | :not_following} | {:error, :not_found}
   @doc """
   This functions toggles the follow relation between auction and user.
   """
@@ -115,7 +118,8 @@ defmodule BiddingPoc.AuctionManager do
 
         result
 
-      other -> other
+      other ->
+        other
     end
   end
 
@@ -144,6 +148,7 @@ defmodule BiddingPoc.AuctionManager do
             :removed ->
               :not_following
           end
+
         broadcast_auction_user_changed(auction_id, user_id, user_status)
 
         result
@@ -237,8 +242,13 @@ defmodule BiddingPoc.AuctionManager do
           {:ok, found} ->
             user_with_status = put_user_status_for_user(found, auction_id)
 
-            AuctionPublisher.broadcast_new_auction_user(auction_id, Map.from_struct(user_with_status))
+            AuctionPublisher.broadcast_new_auction_user(
+              auction_id,
+              Map.from_struct(user_with_status)
+            )
+
             UserPublisher.send_auction_relation_changed(user_id, auction_id, :added)
+
           {:error, :not_found} ->
             Logger.error("Could not find user based on channel's user_id: #{inspect(user_id)}")
         end
